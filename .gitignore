@@ -1,0 +1,5 @@
+/target
+.kiro
+Cargo.lock
+test_models.yaml
+auction_platform_configuration.yml

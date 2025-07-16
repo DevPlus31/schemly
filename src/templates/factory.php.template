@@ -1,0 +1,28 @@
+<?php
+
+namespace Database\Factories;
+
+use {{namespace}}\{{model_name}};
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class {{model_name}}Factory extends Factory
+{
+    /**
+     * The name of the factory's corresponding model.
+     *
+     * @var string
+     */
+    protected $model = {{model_name}}::class;
+
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            {{factory_fields}}
+        ];
+    }
+}

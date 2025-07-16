@@ -1,0 +1,27 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('{{table_name}}', function (Blueprint $table) {
+            $table->bigInteger('{{foreign_key1}}')->unsigned();
+            $table->bigInteger('{{foreign_key2}}')->unsigned();
+            {{additional_fields}}
+            {{timestamps}}
+
+            $table->primary(['{{foreign_key1}}', '{{foreign_key2}}']);
+            $table->foreign('{{foreign_key1}}')->references('id')->on('{{table1}}')->onDelete('cascade');
+            $table->foreign('{{foreign_key2}}')->references('id')->on('{{table2}}')->onDelete('cascade');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('{{table_name}}');
+    }
+};

@@ -1,0 +1,26 @@
+<?php
+
+namespace {{namespace}};
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+{{use_soft_deletes}}
+{{other_imports}}
+
+class {{class_name}} extends Model
+{
+    use HasFactory;
+    {{soft_deletes_trait}}
+    {{other_traits}}
+
+    protected $table = '{{table_name}}';
+
+    protected $fillable = [
+        {{fillable}}
+    ];
+
+    {{casts}}
+
+    {{relationships}}
+
+}

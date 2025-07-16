@@ -1,0 +1,209 @@
+# Example Laravel Models Configuration
+# This file demonstrates the basic structure for defining Laravel models
+
+outputDir: "."
+namespace: "App\\Models"
+
+models:
+  # Simple User model with basic fields
+  - name: User
+    table: users
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: name
+        type: string
+        length: 255
+        nullable: false
+      - name: email
+        type: string
+        length: 255
+        nullable: false
+        unique: true
+        index: true
+      - name: email_verified_at
+        type: timestamp
+        nullable: true
+      - name: password
+        type: string
+        length: 255
+        nullable: false
+      - name: role
+        type: enum
+        enumValues:
+          - value: "admin"
+            label: "Administrator"
+          - value: "user"
+            label: "Regular User"
+        default: "user"
+      - name: is_active
+        type: boolean
+        default: "true"
+    relationships:
+      - type: hasMany
+        model: Post
+        foreignKey: user_id
+
+  # Blog Post model with relationships
+  - name: Post
+    table: posts
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+      - name: title
+        type: string
+        length: 255
+        nullable: false
+      - name: slug
+        type: string
+        length: 255
+        nullable: false
+        unique: true
+        index: true
+      - name: content
+        type: longText
+        nullable: false
+      - name: excerpt
+        type: text
+        nullable: true
+      - name: status
+        type: enum
+        enumValues:
+          - value: "draft"
+            label: "Draft"
+          - value: "published"
+            label: "Published"
+          - value: "archived"
+            label: "Archived"
+        default: "draft"
+      - name: published_at
+        type: timestamp
+        nullable: true
+      - name: view_count
+        type: integer
+        unsigned: true
+        default: "0"
+      - name: metadata
+        type: json
+        nullable: true
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+      - type: hasMany
+        model: Comment
+        foreignKey: post_id
+      - type: belongsToMany
+        model: Tag
+        pivotTable: post_tags
+
+  # Comment model with polymorphic relationship
+  - name: Comment
+    table: comments
+    timestamps: true
+    fields:
+      - name: post_id
+        type: bigInteger
+        nullable: false
+        index: true
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+      - name: content
+        type: text
+        nullable: false
+      - name: is_approved
+        type: boolean
+        default: "false"
+    relationships:
+      - type: belongsTo
+        model: Post
+        foreignKey: post_id
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+
+  # Tag model for many-to-many relationship
+  - name: Tag
+    table: tags
+    timestamps: true
+    fields:
+      - name: name
+        type: string
+        length: 100
+        nullable: false
+        unique: true
+      - name: slug
+        type: string
+        length: 100
+        nullable: false
+        unique: true
+        index: true
+      - name: description
+        type: text
+        nullable: true
+      - name: color
+        type: string
+        length: 7
+        nullable: true
+        comment: "Hex color code"
+    relationships:
+      - type: belongsToMany
+        model: Post
+        pivotTable: post_tags
+    pivotTables:
+      - name: post_tags
+        model1: Post
+        model2: Tag
+        foreignKey1: post_id
+        foreignKey2: tag_id
+        timestamps: true
+
+  # Profile model with one-to-one relationship
+  - name: Profile
+    table: profiles
+    timestamps: true
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        unique: true
+        index: true
+      - name: first_name
+        type: string
+        length: 100
+        nullable: true
+      - name: last_name
+        type: string
+        length: 100
+        nullable: true
+      - name: bio
+        type: text
+        nullable: true
+      - name: avatar_url
+        type: string
+        length: 500
+        nullable: true
+      - name: birth_date
+        type: date
+        nullable: true
+      - name: phone_number
+        type: string
+        length: 20
+        nullable: true
+      - name: website_url
+        type: string
+        length: 255
+        nullable: true
+      - name: social_links
+        type: json
+        nullable: true
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id

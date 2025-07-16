@@ -1,0 +1,62 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use {{namespace}}\{{model_name}};
+use Illuminate\Http\Request;
+use App\Http\Resources\{{model_name}}Resource;
+
+class {{model_name}}Controller extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
+    {
+        ${{model_var_name}}s = {{model_name}}::paginate(15);
+        return {{model_name}}Resource::collection(${{model_var_name}}s);
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            {{validation_rules}}
+        ]);
+
+        ${{model_var_name}} = {{model_name}}::create($validated);
+        return new {{model_name}}Resource(${{model_var_name}});
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show({{model_name}} ${{model_var_name}})
+    {
+        return new {{model_name}}Resource(${{model_var_name}});
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, {{model_name}} ${{model_var_name}})
+    {
+        $validated = $request->validate([
+            {{validation_rules}}
+        ]);
+
+        ${{model_var_name}}->update($validated);
+        return new {{model_name}}Resource(${{model_var_name}});
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy({{model_name}} ${{model_var_name}})
+    {
+        ${{model_var_name}}->delete();
+        return response()->noContent();
+    }
+}
