@@ -2,6 +2,8 @@
 
 A powerful Laravel code generator written in Rust that creates models, controllers, resources, factories, migrations, and pivot tables from YAML configuration files.
 
+🌐 **Website**: [https://schemly.dev/](https://schemly.dev/)
+
 ## Features
 
 - 🚀 **Fast & Reliable** - Built with Rust for maximum performance
@@ -142,24 +144,24 @@ schemly --config models.yml --no-pivot-tables
 
 ### Command Line Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-c, --config <FILE>` | Path to YAML configuration file | Required |
-| `-o, --output <DIR>` | Laravel project root directory | `.` (current directory) |
-| `--only-models` | Generate only models | |
-| `--only-controllers` | Generate only controllers | |
-| `--only-resources` | Generate only resources | |
-| `--only-factories` | Generate only factories | |
-| `--only-migrations` | Generate only migrations | |
-| `--only-pivot-tables` | Generate only pivot tables | |
-| `--no-models` | Skip model generation | |
-| `--no-controllers` | Skip controller generation | |
-| `--no-resources` | Skip resource generation | |
-| `--no-factories` | Skip factory generation | |
-| `--no-migrations` | Skip migration generation | |
-| `--no-pivot-tables` | Skip pivot table generation | |
-| `--force` | Force overwrite existing files | |
-| `-h, --help` | Show help information | |
+| Option                | Description                     | Default                 |
+| --------------------- | ------------------------------- | ----------------------- |
+| `-c, --config <FILE>` | Path to YAML configuration file | Required                |
+| `-o, --output <DIR>`  | Laravel project root directory  | `.` (current directory) |
+| `--only-models`       | Generate only models            |                         |
+| `--only-controllers`  | Generate only controllers       |                         |
+| `--only-resources`    | Generate only resources         |                         |
+| `--only-factories`    | Generate only factories         |                         |
+| `--only-migrations`   | Generate only migrations        |                         |
+| `--only-pivot-tables` | Generate only pivot tables      |                         |
+| `--no-models`         | Skip model generation           |                         |
+| `--no-controllers`    | Skip controller generation      |                         |
+| `--no-resources`      | Skip resource generation        |                         |
+| `--no-factories`      | Skip factory generation         |                         |
+| `--no-migrations`     | Skip migration generation       |                         |
+| `--no-pivot-tables`   | Skip pivot table generation     |                         |
+| `--force`             | Force overwrite existing files  |                         |
+| `-h, --help`          | Show help information           |                         |
 
 ## YAML Configuration
 
@@ -167,19 +169,19 @@ schemly --config models.yml --no-pivot-tables
 
 ```yaml
 models:
-  - name: ModelName          # Required: PHP class name
-    table: table_name        # Required: Database table name
-    timestamps: true         # Optional: Add created_at/updated_at (default: false)
-    softDeletes: false       # Optional: Add soft delete support (default: false)
-    fields:                  # Required: List of model fields
+  - name: ModelName # Required: PHP class name
+    table: table_name # Required: Database table name
+    timestamps: true # Optional: Add created_at/updated_at (default: false)
+    softDeletes: false # Optional: Add soft delete support (default: false)
+    fields: # Required: List of model fields
       - name: field_name
         type: string
         # ... field options
-    relationships:           # Optional: Model relationships
+    relationships: # Optional: Model relationships
       - type: hasMany
         model: RelatedModel
         # ... relationship options
-    pivotTables:            # Optional: Pivot tables for many-to-many
+    pivotTables: # Optional: Pivot tables for many-to-many
       - name: pivot_table_name
         # ... pivot table options
 ```
@@ -193,24 +195,24 @@ fields:
   # String types
   - name: title
     type: string
-    length: 255              # Optional: field length
-    nullable: false          # Optional: allow null (default: false)
-    unique: true             # Optional: unique constraint (default: false)
-    index: true              # Optional: database index (default: false)
+    length: 255 # Optional: field length
+    nullable: false # Optional: allow null (default: false)
+    unique: true # Optional: unique constraint (default: false)
+    index: true # Optional: database index (default: false)
     default: "default_value" # Optional: default value
 
   # Text types
   - name: description
-    type: text               # text, longText, mediumText
+    type: text # text, longText, mediumText
 
   # Numeric types
   - name: age
-    type: integer            # integer, bigInteger, tinyInteger, smallInteger, mediumInteger
-    unsigned: true           # Optional: unsigned constraint
+    type: integer # integer, bigInteger, tinyInteger, smallInteger, mediumInteger
+    unsigned: true # Optional: unsigned constraint
 
   - name: price
     type: decimal
-    decimalPrecision:        # Optional: decimal precision
+    decimalPrecision: # Optional: decimal precision
       precision: 8
       scale: 2
 
@@ -219,7 +221,7 @@ fields:
     type: boolean
 
   - name: birth_date
-    type: date               # date, dateTime, timestamp
+    type: date # date, dateTime, timestamp
 
   - name: metadata
     type: json
@@ -229,17 +231,17 @@ fields:
 
   - name: status
     type: enum
-    enumValues:              # Required for enum fields
+    enumValues: # Required for enum fields
       - value: "active"
-        label: "Active"      # Optional: human-readable label
+        label: "Active" # Optional: human-readable label
       - value: "inactive"
         label: "Inactive"
 
   - name: ip_address
-    type: inet               # IP address field
+    type: inet # IP address field
 
   - name: file_data
-    type: binary             # Binary data
+    type: binary # Binary data
 ```
 
 ### Relationships
@@ -251,12 +253,12 @@ relationships:
   # One-to-Many
   - type: hasMany
     model: Post
-    foreignKey: user_id      # Optional: custom foreign key
+    foreignKey: user_id # Optional: custom foreign key
 
   # Many-to-One
   - type: belongsTo
     model: User
-    foreignKey: user_id      # Optional: custom foreign key
+    foreignKey: user_id # Optional: custom foreign key
 
   # One-to-One
   - type: hasOne
@@ -266,11 +268,11 @@ relationships:
   # Many-to-Many
   - type: belongsToMany
     model: Role
-    pivotTable: user_roles   # Optional: custom pivot table name
+    pivotTable: user_roles # Optional: custom pivot table name
 
   # Polymorphic relationships
   - type: morphTo
-    morphName: commentable   # Required: morph name
+    morphName: commentable # Required: morph name
 
   - type: morphOne
     model: Image
@@ -283,7 +285,7 @@ relationships:
   - type: morphToMany
     model: Tag
     morphName: taggable
-    pivotTable: taggables    # Optional: custom pivot table
+    pivotTable: taggables # Optional: custom pivot table
 ```
 
 ### Pivot Tables
@@ -300,8 +302,8 @@ models:
         model2: Role
         foreignKey1: user_id
         foreignKey2: role_id
-        timestamps: true     # Optional: add timestamps to pivot
-        additionalFields:    # Optional: extra fields in pivot table
+        timestamps: true # Optional: add timestamps to pivot
+        additionalFields: # Optional: extra fields in pivot table
           - name: assigned_at
             type: timestamp
           - name: assigned_by
@@ -488,28 +490,34 @@ models:
 Schemly generates the following Laravel files:
 
 ### Models (`app/Models/`)
+
 - Eloquent model classes with relationships, casts, and fillable fields
 - Proper namespace and imports
 - Trait usage (HasFactory, SoftDeletes)
 
 ### Controllers (`app/Http/Controllers/`)
+
 - Resource controllers with CRUD operations
 - Proper imports and type hints
 
 ### Resources (`app/Http/Resources/`)
+
 - API resource classes for JSON responses
 - All model fields included
 
 ### Factories (`database/factories/`)
+
 - Model factories for testing and seeding
 - Intelligent fake data generation based on field names and types
 
 ### Migrations (`database/migrations/`)
+
 - Database migration files with proper timestamps
 - All field types, constraints, and indexes
 - Foreign key relationships
 
 ### Pivot Tables (`database/migrations/`)
+
 - Pivot table migrations for many-to-many relationships
 - Additional fields and timestamps support
 
@@ -526,7 +534,7 @@ schemly --config models.yml
 # Output:
 # Warning: File already exists, skipping: ./app/Models/User.php
 # Generated model: Post
-# 
+#
 # Summary:
 #   ✓ 1 files generated successfully
 #   ⚠ 1 files skipped (already exist)
@@ -573,6 +581,7 @@ Error: At least one component type must be enabled for generation
 ## Tips & Best Practices
 
 ### 1. Start Small
+
 Begin with a simple model and gradually add complexity:
 
 ```yaml
@@ -588,19 +597,21 @@ models:
 ```
 
 ### 2. Use Descriptive Field Names
+
 Field names help generate better fake data:
 
 ```yaml
 fields:
-  - name: first_name    # Generates fake()->firstName()
+  - name: first_name # Generates fake()->firstName()
     type: string
   - name: email_address # Generates fake()->email()
     type: string
-  - name: phone_number  # Generates fake()->phoneNumber()
+  - name: phone_number # Generates fake()->phoneNumber()
     type: string
 ```
 
 ### 3. Organize Large Projects
+
 Split large configurations into multiple files:
 
 ```bash
@@ -615,6 +626,7 @@ schemly --config users.yml --config products.yml --only-migrations
 ```
 
 ### 4. Test Before Committing
+
 Always test generated code:
 
 ```bash
@@ -629,6 +641,7 @@ schemly --config models.yml --output /path/to/real-project
 ```
 
 ### 5. Version Control Integration
+
 Add schemly to your development workflow:
 
 ```bash
@@ -648,6 +661,7 @@ git commit -m "Regenerate Laravel models from YAML config"
 ### Common Issues
 
 **Permission Denied**
+
 ```bash
 # Fix file permissions
 chmod 755 /path/to/laravel-project
@@ -655,12 +669,14 @@ chmod -R 644 /path/to/laravel-project/app/Models/
 ```
 
 **Invalid YAML**
+
 ```bash
 # Validate YAML syntax
 python -c "import yaml; yaml.safe_load(open('models.yml'))"
 ```
 
 **Missing Directories**
+
 ```bash
 # Ensure Laravel directory structure exists
 mkdir -p app/Models database/migrations app/Http/Controllers
