@@ -18,7 +18,7 @@ A powerful Laravel code generator written in Rust that creates models, controlle
 ### From Source
 
 ```bash
-git clone https://github.com/your-username/schemly.git
+git clone https://github.com/DevPlus31/schemly.git
 cd schemly
 cargo build --release
 ```
@@ -681,7 +681,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ### Development Setup
 
 ```bash
-git clone https://github.com/your-username/schemly.git
+git clone https://github.com/DevPlus31/schemly.git
 cd schemly
 cargo build
 cargo test
@@ -710,9 +710,9 @@ See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
 
 ## Support
 
-- 📖 [Documentation](https://github.com/your-username/schemly/wiki)
-- 🐛 [Issue Tracker](https://github.com/your-username/schemly/issues)
-- 💬 [Discussions](https://github.com/your-username/schemly/discussions)
+- 📖 [Documentation](https://github.com/DevPlus31/schemly/wiki)
+- 🐛 [Issue Tracker](https://github.com/DevPlus31/schemly/issues)
+- 💬 [Discussions](https://github.com/DevPlus31/schemly/discussions)
 
 ---
 
