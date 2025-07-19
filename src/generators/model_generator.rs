@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::generators::Generator;
+use crate::generators::shared::{PathResolver, NamespaceResolver};
 use crate::types::{Config, ModelDefinition, Relationship, RelationshipType};
 
 pub struct ModelGenerator;
@@ -10,7 +11,8 @@ impl Generator for ModelGenerator {
 
         // PHP opening tag and namespace
         content.push_str("<?php\n\n");
-        content.push_str(&format!("namespace {};\n\n", config.namespace));
+        let namespace = NamespaceResolver::get_model_namespace(model, config);
+        content.push_str(&format!("namespace {};\n\n", namespace));
 
         // Imports
         content.push_str("use Illuminate\\Database\\Eloquent\\Model;\n");
@@ -76,7 +78,7 @@ impl Generator for ModelGenerator {
     }
 
     fn get_file_path(&self, model: &ModelDefinition, config: &Config) -> String {
-        format!("{}/app/Models/{}.php", config.output_dir, model.name)
+        PathResolver::get_model_path(model, config)
     }
 }
 
@@ -120,27 +122,7 @@ impl ModelGenerator {
         }
     }
 
-    fn model_name_to_table(&self, model_name: &str) -> String {
-        let snake_case = model_name
-            .chars()
-            .enumerate()
-            .map(|(i, c)| {
-                if i > 0 && c.is_uppercase() {
-                    format!("_{}", c.to_lowercase())
-                } else {
-                    c.to_lowercase().to_string()
-                }
-            })
-            .collect::<String>();
 
-        if snake_case.ends_with('y') {
-            format!("{}ies", &snake_case[..snake_case.len()-1])
-        } else if snake_case.ends_with('s') {
-            format!("{}es", snake_case)
-        } else {
-            format!("{}s", snake_case)
-        }
-    }
     fn build_casts(&self, model: &ModelDefinition) -> String {
         let mut casts = String::new();
 
@@ -221,33 +203,5 @@ impl ModelGenerator {
             },
         }
     }
-    
-    fn to_camel_case(&self, s: &str) -> String {
-        let mut result = String::new();
-        let mut capitalize_next = false;
 
-        for c in s.chars() {
-            if c == '_' {
-                capitalize_next = true;
-            } else if capitalize_next {
-                result.push(c.to_uppercase().next().unwrap());
-                capitalize_next = false;
-            } else {
-                result.push(c.to_lowercase().next().unwrap());
-            }
-        }
-
-        result
-    }
-
-    fn to_plural_camel_case(&self, s: &str) -> String {
-        let camel = self.to_camel_case(s);
-        if camel.ends_with("y") {
-            format!("{}ies", &camel[..camel.len()-1])
-        } else if camel.ends_with("s") {
-            format!("{}es", camel)
-        } else {
-            format!("{}s", camel)
-        }
-    }
 }

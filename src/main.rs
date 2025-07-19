@@ -1,6 +1,11 @@
+mod config;
 mod error;
 mod generators;
+mod interactive;
+mod template;
 mod types;
+mod utils;
+mod validation;
 
 use clap::Parser;
 use error::Result;
@@ -8,6 +13,7 @@ use generators::*;
 use std::fs;
 use std::path::Path;
 use types::Config;
+use validation::Validator;
 
 #[derive(Debug, PartialEq)]
 pub enum WriteResult {
@@ -45,7 +51,7 @@ fn safe_write_file(file_path: &str, content: &str, force: bool) -> Result<WriteR
 
 #[derive(Parser)]
 #[command(name = "schemly")]
-#[command(about = "A Laravel code generator from YAML configuration")]
+#[command(about = "A Larav el code generator from YAML configuration")]
 #[command(long_about = "Generate Laravel models, controllers, resources, factories, migrations, and pivot tables from YAML configuration files.
 
 EXAMPLES:
@@ -106,6 +112,21 @@ struct Cli {
     #[arg(long, help = "Generate only pivot tables")]
     only_pivot_tables: bool,
 
+    #[arg(long, help = "Generate only DTOs")]
+    only_dto: bool,
+
+    #[arg(long, help = "Skip DTO generation")]
+    no_dto: bool,
+
+    #[arg(long, help = "Use Domain-Driven Design folder structure")]
+    ddd: bool,
+
+    #[arg(long, help = "Use traditional Laravel folder structure")]
+    no_ddd: bool,
+
+    #[arg(short = 'i', long, help = "Interactive mode for selecting models and components")]
+    interactive: bool,
+
     #[arg(long, help = "Force overwrite existing files")]
     force: bool,
 }
@@ -143,6 +164,9 @@ impl LaravelGenerator {
         }
 
         for model in &self.config.models {
+            // Validate each model before processing
+            Validator::validate_model(model)?;
+
             if self.config.generate_models {
                 let result = self.generate_model(model)?;
                 self.update_stats(&mut stats, result);
@@ -167,6 +191,11 @@ impl LaravelGenerator {
                 let result = self.generate_factory(model)?;
                 self.update_stats(&mut stats, result);
             }
+
+            if self.config.generate_dto {
+                let result = self.generate_dto(model)?;
+                self.update_stats(&mut stats, result);
+            }
         }
 
         // Enhanced summary logging
@@ -175,18 +204,14 @@ impl LaravelGenerator {
     }
 
     fn create_directories(&self) -> Result<()> {
-        let dirs = [
-            &self.config.output_dir,
-            &format!("{}/app/Models", &self.config.output_dir),
-            &format!("{}/database/migrations", &self.config.output_dir),
-            &format!("{}/app/Http/Controllers", &self.config.output_dir),
-            &format!("{}/app/Http/Resources", &self.config.output_dir),
-            &format!("{}/database/factories", &self.config.output_dir),
-        ];
+        // Create base output directory
+        fs::create_dir_all(&self.config.output_dir)?;
 
-        for dir in dirs {
-            fs::create_dir_all(dir)?;
+        // Create directories for each model using the shared DirectoryCreator
+        for model in &self.config.models {
+            generators::shared::DirectoryCreator::create_model_directories(model, &self.config)?;
         }
+
         Ok(())
     }
 
@@ -286,6 +311,22 @@ impl LaravelGenerator {
         Ok(result)
     }
 
+    fn generate_dto(&self, model: &types::ModelDefinition) -> Result<WriteResult> {
+        let generator = dto_generator::DtoGenerator;
+        let content = generator.generate(model, &self.config)?;
+        let file_path = generator.get_file_path(model, &self.config);
+
+        let result = safe_write_file(&file_path, &content, self.config.force_overwrite)?;
+        match &result {
+            WriteResult::Written => println!("Generated DTO: {}DTO", model.name),
+            WriteResult::Skipped => {
+                println!("Warning: File already exists, skipping: {}", file_path)
+            }
+            WriteResult::Error(e) => println!("Error writing {}: {}", file_path, e),
+        }
+        Ok(result)
+    }
+
     fn update_stats(&self, stats: &mut GenerationStats, result: WriteResult) {
         match result {
             WriteResult::Written => stats.written += 1,
@@ -332,6 +373,13 @@ impl Config {
 
 // CLI validation functions
 fn validate_generation_flags(cli: &Cli) -> Result<()> {
+    // Check for conflicting DDD flags
+    if cli.ddd && cli.no_ddd {
+        return Err(error::GeneratorError::ModelValidation(
+            "Error: Cannot use both --ddd and --no-ddd flags".to_string(),
+        ));
+    }
+
     // Check if at least one component type will be enabled
     if has_only_flags(cli) {
         let enabled_count = [
@@ -341,6 +389,7 @@ fn validate_generation_flags(cli: &Cli) -> Result<()> {
             cli.only_factories,
             cli.only_migrations,
             cli.only_pivot_tables,
+            cli.only_dto,
         ]
         .iter()
         .filter(|&&x| x)
@@ -361,12 +410,13 @@ fn validate_generation_flags(cli: &Cli) -> Result<()> {
             cli.no_factories,
             cli.no_migrations,
             cli.no_pivot_tables,
+            cli.no_dto,
         ]
         .iter()
         .filter(|&&x| x)
         .count();
 
-        if disabled_count == 6 {
+        if disabled_count == 7 {
             return Err(error::GeneratorError::ModelValidation(
                 "Error: At least one component type must be enabled for generation".to_string(),
             ));
@@ -383,6 +433,7 @@ fn has_only_flags(cli: &Cli) -> bool {
         || cli.only_factories
         || cli.only_migrations
         || cli.only_pivot_tables
+        || cli.only_dto
 }
 
 fn get_enabled_components(cli: &Cli) -> Vec<String> {
@@ -407,6 +458,9 @@ fn get_enabled_components(cli: &Cli) -> Vec<String> {
         if cli.only_pivot_tables {
             enabled.push("pivot tables".to_string());
         }
+        if cli.only_dto {
+            enabled.push("DTOs".to_string());
+        }
     } else {
         if !cli.no_models {
             enabled.push("models".to_string());
@@ -426,6 +480,9 @@ fn get_enabled_components(cli: &Cli) -> Vec<String> {
         if !cli.no_pivot_tables {
             enabled.push("pivot tables".to_string());
         }
+        if !cli.no_dto {
+            enabled.push("DTOs".to_string());
+        }
     }
 
     enabled
@@ -439,32 +496,48 @@ fn main() -> Result<()> {
 
     let mut generator = LaravelGenerator::from_file(&cli.config)?;
 
+    // Handle interactive mode
+    if cli.interactive {
+        generator.config = interactive::InteractiveMode::run(generator.config)?;
+    }
+
     // Override config with CLI options
     generator.config.output_dir = cli.output.clone();
     generator.config.force_overwrite = cli.force;
+
+    // Apply DDD structure flags
+    if cli.ddd {
+        generator.config.use_ddd_structure = true;
+    } else if cli.no_ddd {
+        generator.config.use_ddd_structure = false;
+    }
 
     // Warn user about force flag
     if cli.force {
         println!("⚠️  Warning: --force flag enabled. Existing files will be overwritten!");
     }
 
-    // Apply generation flags with proper precedence
-    if has_only_flags(&cli) {
-        // When --only-* flags are used, disable all then enable only specified
-        generator.config.generate_models = cli.only_models;
-        generator.config.generate_controllers = cli.only_controllers;
-        generator.config.generate_resources = cli.only_resources;
-        generator.config.generate_factories = cli.only_factories;
-        generator.config.generate_migrations = cli.only_migrations;
-        generator.config.generate_pivot_tables = cli.only_pivot_tables;
-    } else {
-        // When --no-* flags are used, start with defaults and disable specified
-        generator.config.generate_models = !cli.no_models;
-        generator.config.generate_controllers = !cli.no_controllers;
-        generator.config.generate_resources = !cli.no_resources;
-        generator.config.generate_factories = !cli.no_factories;
-        generator.config.generate_migrations = !cli.no_migrations;
-        generator.config.generate_pivot_tables = !cli.no_pivot_tables;
+    // Apply generation flags with proper precedence (only if not in interactive mode)
+    if !cli.interactive {
+        if has_only_flags(&cli) {
+            // When --only-* flags are used, disable all then enable only specified
+            generator.config.generate_models = cli.only_models;
+            generator.config.generate_controllers = cli.only_controllers;
+            generator.config.generate_resources = cli.only_resources;
+            generator.config.generate_factories = cli.only_factories;
+            generator.config.generate_migrations = cli.only_migrations;
+            generator.config.generate_pivot_tables = cli.only_pivot_tables;
+            generator.config.generate_dto = cli.only_dto;
+        } else {
+            // When --no-* flags are used, start with defaults and disable specified
+            generator.config.generate_models = !cli.no_models;
+            generator.config.generate_controllers = !cli.no_controllers;
+            generator.config.generate_resources = !cli.no_resources;
+            generator.config.generate_factories = !cli.no_factories;
+            generator.config.generate_migrations = !cli.no_migrations;
+            generator.config.generate_pivot_tables = !cli.no_pivot_tables;
+            generator.config.generate_dto = !cli.no_dto;
+        }
     }
 
     // Log which components will be generated

@@ -95,7 +95,7 @@ pub struct ValidationRule {
     pub parameters: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModelDefinition {
     pub name: String,
     pub table: String,
@@ -129,7 +129,7 @@ impl Default for FillableGuarded {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Field {
     pub name: String,
     #[serde(rename = "type")]
@@ -162,7 +162,7 @@ pub struct Field {
     pub cast_type: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Relationship {
     #[serde(rename = "type")]
     pub relationship_type: RelationshipType,
@@ -185,7 +185,7 @@ pub struct Relationship {
     pub with_timestamps: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct PivotTable {
     pub name: String,
     pub model1: String,
@@ -198,7 +198,7 @@ pub struct PivotTable {
     pub timestamps: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     pub models: Vec<ModelDefinition>,
     #[serde(default)]
@@ -220,6 +220,10 @@ pub struct Config {
     #[serde(default)]
     pub generate_validation_rules: bool,
     #[serde(default)]
+    pub generate_dto: bool,
+    #[serde(default)]
+    pub use_ddd_structure: bool,
+    #[serde(default)]
     pub database_engine: String,
     #[serde(default)]
     pub force_overwrite: bool,
@@ -238,6 +242,8 @@ impl Default for Config {
             generate_migrations: true,
             generate_pivot_tables: true,
             generate_validation_rules: true,
+            generate_dto: false,
+            use_ddd_structure: false,
             database_engine: "mysql".to_string(),
             force_overwrite: false,
         }

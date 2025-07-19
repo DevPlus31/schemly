@@ -1,15 +1,17 @@
 use crate::error::Result;
 use crate::generators::Generator;
+use crate::generators::shared::{PathResolver, NamespaceResolver};
 use crate::types::{Config, ModelDefinition};
 
 pub struct ResourceGenerator;
 
 impl Generator for ResourceGenerator {
-    fn generate(&self, model: &ModelDefinition, _config: &Config) -> Result<String> {
+    fn generate(&self, model: &ModelDefinition, config: &Config) -> Result<String> {
         let mut content = String::new();
 
         content.push_str("<?php\n\n");
-        content.push_str("namespace App\\Http\\Resources;\n\n");
+        let namespace = NamespaceResolver::get_resource_namespace(model, config);
+        content.push_str(&format!("namespace {};\n\n", namespace));
         content.push_str("use Illuminate\\Http\\Request;\n");
         content.push_str("use Illuminate\\Http\\Resources\\Json\\JsonResource;\n\n");
 
@@ -46,6 +48,6 @@ impl Generator for ResourceGenerator {
     }
 
     fn get_file_path(&self, model: &ModelDefinition, config: &Config) -> String {
-        format!("{}/app/Http/Resources/{}Resource.php", config.output_dir, model.name)
+        PathResolver::get_resource_path(model, config)
     }
 }

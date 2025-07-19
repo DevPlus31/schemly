@@ -1,0 +1,31 @@
+<?php
+
+{{namespace}}
+
+
+class {{dto_name}}DTO {
+
+    public function __construct
+    (
+        {{constructor_fields}}
+    )
+    {
+    }
+
+
+     public static function fromArray(array $data): self
+     {
+            return new self(
+                {{from_array_fields}}
+            );
+     }
+
+
+    public function toArray(): array
+    {
+        return [
+            {{to_array_fields}}
+        ];
+    }
+
+}

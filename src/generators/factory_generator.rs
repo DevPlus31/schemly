@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::generators::Generator;
+use crate::generators::shared::{PathResolver, NamespaceResolver};
 use crate::types::{Config, ModelDefinition, FieldType};
 
 pub struct FactoryGenerator;
@@ -9,9 +10,11 @@ impl Generator for FactoryGenerator {
         let mut content = String::new();
 
         content.push_str("<?php\n\n");
-        content.push_str("namespace Database\\Factories;\n\n");
+        let namespace = NamespaceResolver::get_factory_namespace(model, config);
+        content.push_str(&format!("namespace {};\n\n", namespace));
         content.push_str("use Illuminate\\Database\\Eloquent\\Factories\\Factory;\n");
-        content.push_str(&format!("use {}\\{};\n\n", config.namespace, model.name));
+        let model_namespace = NamespaceResolver::get_model_namespace(model, config);
+        content.push_str(&format!("use {}\\{};\n\n", model_namespace, model.name));
 
         content.push_str(&format!("class {}Factory extends Factory\n{{\n", model.name));
         content.push_str(&format!("    protected $model = {}::class;\n\n", model.name));
@@ -34,7 +37,7 @@ impl Generator for FactoryGenerator {
     }
 
     fn get_file_path(&self, model: &ModelDefinition, config: &Config) -> String {
-        format!("{}/database/factories/{}Factory.php", config.output_dir, model.name)
+        PathResolver::get_factory_path(model, config)
     }
 }
 
