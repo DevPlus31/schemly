@@ -1,4 +1,4 @@
-# Schemly - Laravel Code Generator
+# Schemly
 
 A powerful Laravel code generator written in Rust that creates models, controllers, resources, factories, migrations, and pivot tables from YAML configuration files.
 
