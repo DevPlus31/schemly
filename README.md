@@ -1,5 +1,7 @@
 # Schemly
 
+**Version 0.8.0**
+
 A powerful Laravel code generator written in Rust that creates models, controllers, resources, factories, migrations, and pivot tables from YAML configuration files.
 
 🌐 **Website**: [https://schemly.dev/](https://schemly.dev/)
@@ -14,6 +16,9 @@ A powerful Laravel code generator written in Rust that creates models, controlle
 - 📊 **Detailed Statistics** - Clear summary of generated, skipped, and failed files
 - 🔗 **Relationship Support** - Full support for all Laravel relationship types
 - 🏗️ **Pivot Tables** - Automatic pivot table generation for many-to-many relationships
+- 📚 **Rich Examples** - Complete examples for different use cases (e-commerce, blog, linktree)
+- 🤖 **AI-Friendly** - Comprehensive documentation designed for AI code generation
+- 🏛️ **DDD Support** - Optional Domain-Driven Design folder structure
 
 ## Installation
 
@@ -92,6 +97,46 @@ schemly --config models.yml --output /path/to/laravel-project
 # Generate only models and migrations
 schemly --config models.yml --only-models --only-migrations
 ```
+
+## Examples
+
+Schemly comes with three comprehensive examples to get you started:
+
+### 📱 **Linktree Example** (`examples/linktree.yaml`)
+A simple social media link aggregator similar to Linktree:
+- **Models**: User, Link, Category
+- **Features**: Basic relationships, validation rules
+- **Perfect for**: Learning Schemly basics
+
+```bash
+schemly --config examples/linktree.yaml
+```
+
+### 🛒 **E-commerce Example** (`examples/ecommerce.yaml`)
+A complete online store system:
+- **Models**: User, Category, Product, Order, OrderItem, Review, Address, Image
+- **Features**: Complex relationships, decimal pricing, polymorphic images, enums
+- **Perfect for**: Production e-commerce applications
+
+```bash
+schemly --config examples/ecommerce.yaml
+```
+
+### 📝 **Blog Example** (`examples/blog.yaml`)
+An advanced content management system:
+- **Models**: User, Category, Tag, Post, Comment, Media, Newsletter, Subscriber
+- **Features**: DDD structure, many-to-many relationships, polymorphic comments, SEO fields
+- **Perfect for**: Content-heavy applications
+
+```bash
+schemly --config examples/blog.yaml
+```
+
+### 📚 **AI-Friendly Documentation**
+Complete YAML syntax guide designed for AI assistants:
+- **Location**: `docs/YAML_SYNTAX_GUIDE.md`
+- **Features**: Comprehensive field types, relationship patterns, validation rules
+- **Perfect for**: AI code generation and reference
 
 ## Usage
 
@@ -212,7 +257,7 @@ fields:
 
   - name: price
     type: decimal
-    decimalPrecision: # Optional: decimal precision
+    decimal_precision: # Optional: decimal precision
       precision: 8
       scale: 2
 
@@ -231,7 +276,7 @@ fields:
 
   - name: status
     type: enum
-    enumValues: # Required for enum fields
+    enum_values: # Required for enum fields
       - value: "active"
         label: "Active" # Optional: human-readable label
       - value: "inactive"
@@ -342,7 +387,7 @@ models:
         nullable: false
       - name: role
         type: enum
-        enumValues:
+        enum_values:
           - value: "admin"
             label: "Administrator"
           - value: "customer"
@@ -377,7 +422,7 @@ models:
         nullable: true
       - name: price
         type: decimal
-        decimalPrecision:
+        decimal_precision:
           precision: 10
           scale: 2
         nullable: false
@@ -406,13 +451,13 @@ models:
         index: true
       - name: total_amount
         type: decimal
-        decimalPrecision:
+        decimal_precision:
           precision: 10
           scale: 2
         nullable: false
       - name: status
         type: enum
-        enumValues:
+        enum_values:
           - value: "pending"
           - value: "processing"
           - value: "shipped"
@@ -445,7 +490,7 @@ models:
         nullable: false
       - name: price
         type: decimal
-        decimalPrecision:
+        decimal_precision:
           precision: 10
           scale: 2
         nullable: false
@@ -690,10 +735,6 @@ For detailed error information, use Rust's debug output:
 RUST_BACKTRACE=1 schemly --config models.yml
 ```
 
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
 ### Development Setup
 
 ```bash
@@ -722,7 +763,36 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
+### Version 0.8.0 (Latest)
+
+**🎉 Major Release - Enhanced Examples & Documentation**
+
+**New Features:**
+- ✅ **Three Complete Examples**: Added comprehensive YAML examples for different use cases
+  - `examples/linktree.yaml` - Simple link management system
+  - `examples/ecommerce.yaml` - Full e-commerce platform with complex relationships
+  - `examples/blog.yaml` - Advanced blog system with DDD structure
+- ✅ **AI-Friendly Documentation**: Complete YAML syntax guide in `docs/YAML_SYNTAX_GUIDE.md`
+- ✅ **DDD Support**: Optional Domain-Driven Design folder structure
+- ✅ **Enhanced Field Types**: Support for all Laravel field types with proper validation
+
+**Bug Fixes:**
+- 🐛 **Fixed Field Naming**: Corrected snake_case naming for `enum_values` and `decimal_precision`
+- 🐛 **Fixed Polymorphic Relationships**: Resolved `morphTo` relationship parsing issues
+- 🐛 **Improved Validation**: Better error messages for enum and decimal field validation
+
+**Documentation:**
+- 📚 **Comprehensive Examples**: Real-world YAML configurations for immediate use
+- 📚 **AI Integration Guide**: Structured documentation for AI code generation
+- 📚 **Field Type Reference**: Complete mapping of YAML types to Laravel migrations
+- 📚 **Relationship Patterns**: All Laravel relationship types with examples
+
+**Breaking Changes:**
+- ⚠️ **Field Naming**: Changed from camelCase to snake_case for consistency:
+  - `enumValues` → `enum_values`
+  - `decimalPrecision` → `decimal_precision`
+
+See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 
 ## Support
 
