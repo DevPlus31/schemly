@@ -1,0 +1,169 @@
+outputDir: "./app"
+namespace: "App\\Models"
+generateModels: true
+generateControllers: true
+generateDto: true
+generateMigrations: true
+useDddStructure: false
+forceOverwrite: true
+
+models:
+  - name: User
+    table: users
+    timestamps: true
+    softDeletes: true
+    traits: ["HasFactory", "Notifiable"]
+    fields:
+      - name: name
+        type: string
+        length: 100
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+      - name: email
+        type: string
+        length: 255
+        unique: true
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "email"
+          - rule: "unique"
+            parameters: ["users", "email"]
+
+      - name: password
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "min"
+            parameters: ["8"]
+
+      - name: bio
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+      - name: avatar_url
+        type: string
+        length: 255
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "url"
+
+    relationships:
+      - type: hasMany
+        model: Link
+        foreignKey: user_id
+
+      - type: hasMany
+        model: Category
+        foreignKey: user_id
+
+  - name: Link
+    table: links
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: category_id
+        type: bigInteger
+        nullable: true
+        index: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "exists"
+            parameters: ["categories", "id"]
+
+      - name: title
+        type: string
+        length: 100
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+      - name: url
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "url"
+
+      - name: is_active
+        type: boolean
+        default: "true"
+        validationRules:
+          - rule: "boolean"
+
+      - name: order
+        type: integer
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "integer"
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+        onDelete: cascade
+
+      - type: belongsTo
+        model: Category
+        foreignKey: category_id
+        onDelete: set null
+
+  - name: Category
+    table: categories
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: name
+        type: string
+        length: 100
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+
+      - type: hasMany
+        model: Link
+        foreignKey: category_id

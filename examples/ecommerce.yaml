@@ -1,0 +1,762 @@
+# E-commerce System Example
+# Demonstrates: Complex relationships, enums, decimal fields, polymorphic relationships, pivot tables
+
+outputDir: "./app"
+namespace: "App\\Models"
+generateModels: true
+generateControllers: true
+generateResources: true
+generateFactories: true
+generateMigrations: true
+generateDto: true
+useDddStructure: false
+databaseEngine: "mysql"
+forceOverwrite: true
+
+models:
+  # User Model (Customer)
+  - name: User
+    table: users
+    timestamps: true
+    softDeletes: false
+    traits: ["HasFactory", "Notifiable"]
+    fields:
+      - name: first_name
+        type: string
+        length: 50
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: last_name
+        type: string
+        length: 50
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: email
+        type: string
+        length: 255
+        unique: true
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "email"
+          - rule: "unique"
+            parameters: ["users", "email"]
+
+      - name: phone
+        type: string
+        length: 20
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["20"]
+
+      - name: date_of_birth
+        type: date
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+          - rule: "before"
+            parameters: ["today"]
+
+    relationships:
+      - type: hasMany
+        model: Order
+        foreignKey: user_id
+
+      - type: hasMany
+        model: Review
+        foreignKey: user_id
+
+      - type: hasMany
+        model: Address
+        foreignKey: user_id
+
+  # Category Model
+  - name: Category
+    table: categories
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: name
+        type: string
+        length: 100
+        nullable: false
+        unique: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+          - rule: "unique"
+            parameters: ["categories", "name"]
+
+      - name: slug
+        type: string
+        length: 100
+        nullable: false
+        unique: true
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+          - rule: "unique"
+            parameters: ["categories", "slug"]
+
+      - name: description
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+      - name: parent_id
+        type: bigInteger
+        nullable: true
+        index: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "exists"
+            parameters: ["categories", "id"]
+
+      - name: sort_order
+        type: integer
+        default: "0"
+        validationRules:
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+    relationships:
+      - type: hasMany
+        model: Product
+        foreignKey: category_id
+
+      - type: belongsTo
+        model: Category
+        foreignKey: parent_id
+
+      - type: hasMany
+        model: Category
+        foreignKey: parent_id
+
+  # Product Model
+  - name: Product
+    table: products
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: category_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["categories", "id"]
+
+      - name: name
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: slug
+        type: string
+        length: 255
+        nullable: false
+        unique: true
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+          - rule: "unique"
+            parameters: ["products", "slug"]
+
+      - name: description
+        type: longText
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+      - name: price
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: compare_price
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: sku
+        type: string
+        length: 100
+        nullable: false
+        unique: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+          - rule: "unique"
+            parameters: ["products", "sku"]
+
+      - name: stock_quantity
+        type: integer
+        default: "0"
+        validationRules:
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: status
+        type: enum
+        enum_values:
+          - value: "active"
+            label: "Active"
+          - value: "inactive"
+            label: "Inactive"
+          - value: "out_of_stock"
+            label: "Out of Stock"
+        default: "active"
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["active", "inactive", "out_of_stock"]
+
+      - name: weight
+        type: decimal
+        decimal_precision:
+          precision: 8
+          scale: 3
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: dimensions
+        type: json
+        nullable: true
+        castType: "array"
+        validationRules:
+          - rule: "nullable"
+          - rule: "array"
+
+    relationships:
+      - type: belongsTo
+        model: Category
+        foreignKey: category_id
+
+      - type: hasMany
+        model: OrderItem
+        foreignKey: product_id
+
+      - type: hasMany
+        model: Review
+        foreignKey: product_id
+
+      - type: morphMany
+        model: Image
+        morphName: imageable
+
+  # Order Model
+  - name: Order
+    table: orders
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: order_number
+        type: string
+        length: 50
+        nullable: false
+        unique: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+          - rule: "unique"
+            parameters: ["orders", "order_number"]
+
+      - name: status
+        type: enum
+        enum_values:
+          - value: "pending"
+            label: "Pending"
+          - value: "processing"
+            label: "Processing"
+          - value: "shipped"
+            label: "Shipped"
+          - value: "delivered"
+            label: "Delivered"
+          - value: "cancelled"
+            label: "Cancelled"
+          - value: "refunded"
+            label: "Refunded"
+        default: "pending"
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["pending", "processing", "shipped", "delivered", "cancelled", "refunded"]
+
+      - name: subtotal
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: tax_amount
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        default: "0.00"
+        validationRules:
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: shipping_amount
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        default: "0.00"
+        validationRules:
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: total_amount
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: notes
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+      - name: shipped_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+
+      - type: hasMany
+        model: OrderItem
+        foreignKey: order_id
+
+  # OrderItem Model
+  - name: OrderItem
+    table: order_items
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: order_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["orders", "id"]
+
+      - name: product_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["products", "id"]
+
+      - name: quantity
+        type: integer
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["1"]
+
+      - name: unit_price
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: total_price
+        type: decimal
+        decimal_precision:
+          precision: 10
+          scale: 2
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "numeric"
+          - rule: "min"
+            parameters: ["0"]
+
+    relationships:
+      - type: belongsTo
+        model: Order
+        foreignKey: order_id
+        onDelete: cascade
+
+      - type: belongsTo
+        model: Product
+        foreignKey: product_id
+
+  # Review Model
+  - name: Review
+    table: reviews
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: product_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["products", "id"]
+
+      - name: rating
+        type: tinyInteger
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "integer"
+          - rule: "between"
+            parameters: ["1", "5"]
+
+      - name: title
+        type: string
+        length: 255
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: comment
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+      - name: is_verified
+        type: boolean
+        default: "false"
+        validationRules:
+          - rule: "boolean"
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+
+      - type: belongsTo
+        model: Product
+        foreignKey: product_id
+
+  # Address Model
+  - name: Address
+    table: addresses
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: type
+        type: enum
+        enum_values:
+          - value: "billing"
+            label: "Billing Address"
+          - value: "shipping"
+            label: "Shipping Address"
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["billing", "shipping"]
+
+      - name: first_name
+        type: string
+        length: 50
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: last_name
+        type: string
+        length: 50
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: company
+        type: string
+        length: 100
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+      - name: address_line_1
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: address_line_2
+        type: string
+        length: 255
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: city
+        type: string
+        length: 100
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+      - name: state
+        type: string
+        length: 100
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+      - name: postal_code
+        type: string
+        length: 20
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["20"]
+
+      - name: country
+        type: string
+        length: 2
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "size"
+            parameters: ["2"]
+
+      - name: is_default
+        type: boolean
+        default: "false"
+        validationRules:
+          - rule: "boolean"
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+
+  # Image Model (Polymorphic)
+  - name: Image
+    table: images
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: imageable_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "integer"
+
+      - name: imageable_type
+        type: string
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+
+      - name: filename
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: original_name
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: mime_type
+        type: string
+        length: 100
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+      - name: size
+        type: integer
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: alt_text
+        type: string
+        length: 255
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: sort_order
+        type: integer
+        default: "0"
+        validationRules:
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+    relationships:
+      - type: morphTo
+        model: ""
+        morphName: imageable

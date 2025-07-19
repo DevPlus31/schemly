@@ -1,0 +1,778 @@
+# Advanced Blog System Example
+# Demonstrates: Many-to-many relationships, polymorphic comments, tagging system, DDD structure
+
+outputDir: "./app"
+namespace: "App\\Domain"
+generateModels: true
+generateControllers: true
+generateResources: true
+generateFactories: true
+generateMigrations: true
+generateDto: true
+useDddStructure: true
+databaseEngine: "mysql"
+forceOverwrite: true
+
+models:
+  # User Model (Authors and Readers)
+  - name: User
+    table: users
+    timestamps: true
+    softDeletes: false
+    traits: ["HasFactory", "Notifiable"]
+    fields:
+      - name: username
+        type: string
+        length: 50
+        nullable: false
+        unique: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+          - rule: "unique"
+            parameters: ["users", "username"]
+          - rule: "alpha_dash"
+
+      - name: email
+        type: string
+        length: 255
+        unique: true
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "email"
+          - rule: "unique"
+            parameters: ["users", "email"]
+
+      - name: first_name
+        type: string
+        length: 50
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: last_name
+        type: string
+        length: 50
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: bio
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["1000"]
+
+      - name: avatar
+        type: string
+        length: 255
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "url"
+
+      - name: role
+        type: enum
+        enum_values:
+          - value: "admin"
+            label: "Administrator"
+          - value: "editor"
+            label: "Editor"
+          - value: "author"
+            label: "Author"
+          - value: "subscriber"
+            label: "Subscriber"
+        default: "subscriber"
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["admin", "editor", "author", "subscriber"]
+
+      - name: email_verified_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+      - name: last_login_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+    relationships:
+      - type: hasMany
+        model: Post
+        foreignKey: author_id
+
+      - type: hasMany
+        model: Comment
+        foreignKey: user_id
+
+      - type: belongsToMany
+        model: Post
+        pivotTable: post_likes
+        foreignPivotKey: user_id
+        relatedPivotKey: post_id
+        withTimestamps: true
+
+  # Category Model
+  - name: Category
+    table: categories
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: name
+        type: string
+        length: 100
+        nullable: false
+        unique: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+          - rule: "unique"
+            parameters: ["categories", "name"]
+
+      - name: slug
+        type: string
+        length: 100
+        nullable: false
+        unique: true
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+          - rule: "unique"
+            parameters: ["categories", "slug"]
+          - rule: "alpha_dash"
+
+      - name: description
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+      - name: color
+        type: string
+        length: 7
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "regex"
+            parameters: ["/^#[0-9A-Fa-f]{6}$/"]
+
+      - name: icon
+        type: string
+        length: 50
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: sort_order
+        type: integer
+        default: "0"
+        validationRules:
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+    relationships:
+      - type: belongsToMany
+        model: Post
+        pivotTable: post_categories
+        withTimestamps: false
+
+  # Tag Model
+  - name: Tag
+    table: tags
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: name
+        type: string
+        length: 50
+        nullable: false
+        unique: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+          - rule: "unique"
+            parameters: ["tags", "name"]
+
+      - name: slug
+        type: string
+        length: 50
+        nullable: false
+        unique: true
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+          - rule: "unique"
+            parameters: ["tags", "slug"]
+          - rule: "alpha_dash"
+
+      - name: description
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+    relationships:
+      - type: belongsToMany
+        model: Post
+        pivotTable: post_tags
+        withTimestamps: false
+
+  # Post Model
+  - name: Post
+    table: posts
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: author_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: title
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: slug
+        type: string
+        length: 255
+        nullable: false
+        unique: true
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+          - rule: "unique"
+            parameters: ["posts", "slug"]
+          - rule: "alpha_dash"
+
+      - name: excerpt
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["500"]
+
+      - name: content
+        type: longText
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+
+      - name: featured_image
+        type: string
+        length: 255
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "url"
+
+      - name: status
+        type: enum
+        enum_values:
+          - value: "draft"
+            label: "Draft"
+          - value: "published"
+            label: "Published"
+          - value: "scheduled"
+            label: "Scheduled"
+          - value: "archived"
+            label: "Archived"
+        default: "draft"
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["draft", "published", "scheduled", "archived"]
+
+      - name: published_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+      - name: scheduled_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+          - rule: "after"
+            parameters: ["now"]
+
+      - name: view_count
+        type: integer
+        unsigned: true
+        default: "0"
+        validationRules:
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: reading_time
+        type: integer
+        nullable: true
+        comment: "Estimated reading time in minutes"
+        validationRules:
+          - rule: "nullable"
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["1"]
+
+      - name: meta_title
+        type: string
+        length: 60
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["60"]
+
+      - name: meta_description
+        type: string
+        length: 160
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["160"]
+
+      - name: is_featured
+        type: boolean
+        default: "false"
+        validationRules:
+          - rule: "boolean"
+
+      - name: allow_comments
+        type: boolean
+        default: "true"
+        validationRules:
+          - rule: "boolean"
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: author_id
+
+      - type: belongsToMany
+        model: Category
+        pivotTable: post_categories
+        withTimestamps: false
+
+      - type: belongsToMany
+        model: Tag
+        pivotTable: post_tags
+        withTimestamps: false
+
+      - type: belongsToMany
+        model: User
+        pivotTable: post_likes
+        foreignPivotKey: post_id
+        relatedPivotKey: user_id
+        withTimestamps: true
+
+      - type: morphMany
+        model: Comment
+        morphName: commentable
+
+  # Comment Model (Polymorphic)
+  - name: Comment
+    table: comments
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: commentable_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "integer"
+
+      - name: commentable_type
+        type: string
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+
+      - name: parent_id
+        type: bigInteger
+        nullable: true
+        index: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "exists"
+            parameters: ["comments", "id"]
+
+      - name: content
+        type: text
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["1000"]
+
+      - name: status
+        type: enum
+        enum_values:
+          - value: "pending"
+            label: "Pending Approval"
+          - value: "approved"
+            label: "Approved"
+          - value: "spam"
+            label: "Spam"
+          - value: "rejected"
+            label: "Rejected"
+        default: "pending"
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["pending", "approved", "spam", "rejected"]
+
+      - name: ip_address
+        type: inet
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "ip"
+
+      - name: user_agent
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+
+      - type: morphTo
+        model: ""
+        morphName: commentable
+
+      - type: belongsTo
+        model: Comment
+        foreignKey: parent_id
+
+      - type: hasMany
+        model: Comment
+        foreignKey: parent_id
+
+  # Media Model
+  - name: Media
+    table: media
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: user_id
+        type: bigInteger
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "exists"
+            parameters: ["users", "id"]
+
+      - name: filename
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: original_name
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: mime_type
+        type: string
+        length: 100
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["100"]
+
+      - name: size
+        type: bigInteger
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+      - name: path
+        type: string
+        length: 500
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["500"]
+
+      - name: alt_text
+        type: string
+        length: 255
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: caption
+        type: text
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+
+      - name: metadata
+        type: json
+        nullable: true
+        castType: "array"
+        validationRules:
+          - rule: "nullable"
+          - rule: "array"
+
+    relationships:
+      - type: belongsTo
+        model: User
+        foreignKey: user_id
+
+  # Newsletter Model
+  - name: Newsletter
+    table: newsletters
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: subject
+        type: string
+        length: 255
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["255"]
+
+      - name: content
+        type: longText
+        nullable: false
+        validationRules:
+          - rule: "required"
+          - rule: "string"
+
+      - name: status
+        type: enum
+        enum_values:
+          - value: "draft"
+            label: "Draft"
+          - value: "scheduled"
+            label: "Scheduled"
+          - value: "sent"
+            label: "Sent"
+        default: "draft"
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["draft", "scheduled", "sent"]
+
+      - name: scheduled_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+          - rule: "after"
+            parameters: ["now"]
+
+      - name: sent_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+      - name: recipient_count
+        type: integer
+        default: "0"
+        validationRules:
+          - rule: "integer"
+          - rule: "min"
+            parameters: ["0"]
+
+  # Subscriber Model
+  - name: Subscriber
+    table: subscribers
+    timestamps: true
+    softDeletes: false
+    fields:
+      - name: email
+        type: string
+        length: 255
+        unique: true
+        nullable: false
+        index: true
+        validationRules:
+          - rule: "required"
+          - rule: "email"
+          - rule: "unique"
+            parameters: ["subscribers", "email"]
+
+      - name: first_name
+        type: string
+        length: 50
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: last_name
+        type: string
+        length: 50
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "string"
+          - rule: "max"
+            parameters: ["50"]
+
+      - name: status
+        type: enum
+        enum_values:
+          - value: "active"
+            label: "Active"
+          - value: "unsubscribed"
+            label: "Unsubscribed"
+          - value: "bounced"
+            label: "Bounced"
+        default: "active"
+        validationRules:
+          - rule: "required"
+          - rule: "in"
+            parameters: ["active", "unsubscribed", "bounced"]
+
+      - name: subscribed_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+      - name: unsubscribed_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+      - name: email_verified_at
+        type: timestamp
+        nullable: true
+        validationRules:
+          - rule: "nullable"
+          - rule: "date"
+
+# Pivot Tables
+pivotTables:
+  - name: post_categories
+    model1: Post
+    model2: Category
+    foreignKey1: post_id
+    foreignKey2: category_id
+    timestamps: false
+
+  - name: post_tags
+    model1: Post
+    model2: Tag
+    foreignKey1: post_id
+    foreignKey2: tag_id
+    timestamps: false
+
+  - name: post_likes
+    model1: Post
+    model2: User
+    foreignKey1: post_id
+    foreignKey2: user_id
+    timestamps: true
