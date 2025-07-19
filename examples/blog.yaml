@@ -425,7 +425,7 @@ models:
 
       - type: morphMany
         model: Comment
-        morphName: commentable
+        morph_name: commentable
 
   # Comment Model (Polymorphic)
   - name: Comment
@@ -513,8 +513,7 @@ models:
         foreignKey: user_id
 
       - type: morphTo
-        model: ""
-        morphName: commentable
+        morph_name: commentable
 
       - type: belongsTo
         model: Comment

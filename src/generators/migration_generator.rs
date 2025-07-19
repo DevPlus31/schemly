@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::generators::Generator;
-use crate::types::{Config, ModelDefinition, RelationshipType};
+use crate::types::{Config, ModelDefinition, Relationship};
 use chrono::Utc;
 
 pub struct MigrationGenerator;
@@ -46,14 +46,14 @@ impl Generator for MigrationGenerator {
         // Generate foreign key constraints
         let mut foreign_keys = String::new();
         for relationship in &model.relationships {
-            if let Some(foreign_key) = &relationship.foreign_key {
-                if relationship.relationship_type == RelationshipType::BelongsTo {
-                    let referenced_table = self.model_name_to_table(&relationship.model);
-                    let on_delete = relationship.on_delete.as_deref().unwrap_or("restrict");
-                    let on_update = relationship.on_update.as_deref().unwrap_or("restrict");
+            if let Relationship::BelongsTo(rel) = relationship {
+                if let Some(foreign_key) = &rel.foreign_key {
+                    let referenced_table = self.model_name_to_table(&rel.model);
+                    let on_delete = rel.on_delete.as_deref().unwrap_or("restrict");
+                    let on_update = rel.on_update.as_deref().unwrap_or("restrict");
 
                     foreign_keys.push_str(&format!("Schema::table('{}', function (Blueprint $table) {{\n", model.table));
-                    foreign_keys.push_str(&format!("    $table->foreign('{}')->references('id')->on('{}')->onDelete('{}')->onUpdate('{}');\n", 
+                    foreign_keys.push_str(&format!("    $table->foreign('{}')->references('id')->on('{}')->onDelete('{}')->onUpdate('{}');\n",
                                                 foreign_key, referenced_table, on_delete, on_update));
                     foreign_keys.push_str("});\n\n");
                 }

@@ -98,7 +98,7 @@ models:
         localKey: id                        # Optional: Custom local key
         pivotTable: pivot_table_name        # Optional: For many-to-many
         pivotFields: ["field1", "field2"]   # Optional: Additional pivot fields
-        morphName: morphable                # Optional: For polymorphic
+        morph_name: morphable               # Optional: For polymorphic
         onDelete: cascade                   # Optional: Foreign key constraint
         onUpdate: cascade                   # Optional: Foreign key constraint
         withTimestamps: false               # Optional: Pivot table timestamps
@@ -345,25 +345,25 @@ relationships:
 relationships:
   - type: morphMany
     model: Comment
-    morphName: commentable          # Required: morph name
+    morph_name: commentable         # Required: morph name
 
 # Polymorphic Many-to-One (morphTo)
 relationships:
   - type: morphTo
-    morphName: commentable          # Required: morph name
+    morph_name: commentable         # Required: morph name
 
 # Polymorphic One-to-One (morphOne)
 relationships:
   - type: morphOne
     model: Image
-    morphName: imageable
+    morph_name: imageable
 
 # Polymorphic Many-to-Many (morphToMany)
 relationships:
   - type: morphToMany
     model: Tag
-    morphName: taggable
-    pivotTable: taggables          # Optional: custom pivot table
+    morph_name: taggable
+    pivot_table: taggables          # Optional: custom pivot table
 ```
 
 ---
@@ -877,7 +877,7 @@ models:
         index: true
     relationships:
       - type: morphTo
-        morphName: commentable
+        morph_name: commentable
 
   # Post model (can have comments)
   - name: Post
@@ -890,7 +890,7 @@ models:
     relationships:
       - type: morphMany
         model: Comment
-        morphName: commentable
+        morph_name: commentable
 
   # Product model (can have comments)
   - name: Product
@@ -903,7 +903,7 @@ models:
     relationships:
       - type: morphMany
         model: Comment
-        morphName: commentable
+        morph_name: commentable
 ```
 
 ### Multi-tenant System

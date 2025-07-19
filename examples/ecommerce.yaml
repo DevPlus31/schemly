@@ -296,7 +296,7 @@ models:
 
       - type: morphMany
         model: Image
-        morphName: imageable
+        morph_name: imageable
 
   # Order Model
   - name: Order
@@ -758,5 +758,4 @@ models:
 
     relationships:
       - type: morphTo
-        model: ""
-        morphName: imageable
+        morph_name: imageable

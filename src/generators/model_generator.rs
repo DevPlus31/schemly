@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::generators::Generator;
 use crate::generators::shared::{PathResolver, NamespaceResolver};
-use crate::types::{Config, ModelDefinition, Relationship, RelationshipType};
+use crate::types::{Config, ModelDefinition, Relationship};
 
 pub struct ModelGenerator;
 
@@ -84,25 +84,35 @@ impl Generator for ModelGenerator {
 
 impl ModelGenerator {
     fn get_relationship_method_name(&self, relationship: &Relationship) -> String {
-        match relationship.relationship_type {
-            RelationshipType::BelongsTo => {
+        match relationship {
+            Relationship::BelongsTo(rel) => {
                 // Convert StudlyCase to camelCase for the method name
-                let first_char = relationship.model.chars().next().unwrap().to_lowercase().to_string();
-                let rest = &relationship.model[1..];
+                let first_char = rel.model.chars().next().unwrap().to_lowercase().to_string();
+                let rest = &rel.model[1..];
                 format!("{}{}", first_char, rest)
             },
-            RelationshipType::HasMany | RelationshipType::BelongsToMany | RelationshipType::MorphMany | RelationshipType::MorphToMany => {
+            Relationship::HasMany(rel) | Relationship::BelongsToMany(rel) => {
                 // Pluralize the model name for the method name
-                self.pluralize_model_name(&relationship.model)
+                self.pluralize_model_name(&rel.model)
             },
-            RelationshipType::HasOne | RelationshipType::MorphOne => {
+            Relationship::MorphMany(rel) | Relationship::MorphToMany(rel) => {
+                // Pluralize the model name for the method name
+                self.pluralize_model_name(&rel.model)
+            },
+            Relationship::HasOne(rel) => {
                 // Convert StudlyCase to camelCase for the method name
-                let first_char = relationship.model.chars().next().unwrap().to_lowercase().to_string();
-                let rest = &relationship.model[1..];
+                let first_char = rel.model.chars().next().unwrap().to_lowercase().to_string();
+                let rest = &rel.model[1..];
                 format!("{}{}", first_char, rest)
             },
-            RelationshipType::MorphTo => {
-                relationship.morph_name.clone().unwrap_or_else(|| "morphable".to_string())
+            Relationship::MorphOne(rel) => {
+                // Convert StudlyCase to camelCase for the method name
+                let first_char = rel.model.chars().next().unwrap().to_lowercase().to_string();
+                let rest = &rel.model[1..];
+                format!("{}{}", first_char, rest)
+            },
+            Relationship::MorphTo(rel) => {
+                rel.morph_name.clone()
             },
         }
     }
@@ -139,66 +149,61 @@ impl ModelGenerator {
         let method_name = self.get_relationship_method_name(relationship);
 
 
-        match relationship.relationship_type {
-            RelationshipType::BelongsTo => {
-                if let Some(foreign_key) = &relationship.foreign_key {
+        match relationship {
+            Relationship::BelongsTo(rel) => {
+                if let Some(foreign_key) = &rel.foreign_key {
                     format!("    public function {}()\n    {{\n        return $this->belongsTo({}::class, '{}');\n    }}\n\n",
-                            method_name, relationship.model, foreign_key)
+                            method_name, rel.model, foreign_key)
                 } else {
                     format!("    public function {}()\n    {{\n        return $this->belongsTo({}::class);\n    }}\n\n",
-                            method_name, relationship.model)
+                            method_name, rel.model)
                 }
             },
-            RelationshipType::HasMany => {
-                if let Some(foreign_key) = &relationship.foreign_key {
+            Relationship::HasMany(rel) => {
+                if let Some(foreign_key) = &rel.foreign_key {
                     format!("    public function {}()\n    {{\n        return $this->hasMany({}::class, '{}');\n    }}\n\n",
-                            method_name, relationship.model, foreign_key)
+                            method_name, rel.model, foreign_key)
                 } else {
                     format!("    public function {}()\n    {{\n        return $this->hasMany({}::class);\n    }}\n\n",
-                            method_name, relationship.model)
+                            method_name, rel.model)
                 }
             },
-            RelationshipType::HasOne => {
-                if let Some(foreign_key) = &relationship.foreign_key {
+            Relationship::HasOne(rel) => {
+                if let Some(foreign_key) = &rel.foreign_key {
                     format!("    public function {}()\n    {{\n        return $this->hasOne({}::class, '{}');\n    }}\n\n",
-                            method_name, relationship.model, foreign_key)
+                            method_name, rel.model, foreign_key)
                 } else {
                     format!("    public function {}()\n    {{\n        return $this->hasOne({}::class);\n    }}\n\n",
-                            method_name, relationship.model)
+                            method_name, rel.model)
                 }
             },
-            RelationshipType::BelongsToMany => {
-                if let Some(pivot_table) = &relationship.pivot_table {
+            Relationship::BelongsToMany(rel) => {
+                if let Some(pivot_table) = &rel.pivot_table {
                     format!("    public function {}()\n    {{\n        return $this->belongsToMany({}::class, '{}');\n    }}\n\n",
-                            method_name, relationship.model, pivot_table)
+                            method_name, rel.model, pivot_table)
                 } else {
                     format!("    public function {}()\n    {{\n        return $this->belongsToMany({}::class);\n    }}\n\n",
-                            method_name, relationship.model)
+                            method_name, rel.model)
                 }
             },
-            RelationshipType::MorphTo => {
-                let morph_name = relationship.morph_name.as_deref().unwrap_or("morphable");
-                format!("    public function {}()\n    {{\n        return $this->morphTo('{}');\n    }}\n\n",
-                        method_name, morph_name)
+            Relationship::MorphTo(_rel) => {
+                format!("    public function {}()\n    {{\n        return $this->morphTo();\n    }}\n\n", method_name)
             },
-            RelationshipType::MorphOne => {
-                let morph_name = relationship.morph_name.as_deref().unwrap_or("morphable");
+            Relationship::MorphOne(rel) => {
                 format!("    public function {}()\n    {{\n        return $this->morphOne({}::class, '{}');\n    }}\n\n",
-                        method_name, relationship.model, morph_name)
+                        method_name, rel.model, rel.morph_name)
             },
-            RelationshipType::MorphMany => {
-                let morph_name = relationship.morph_name.as_deref().unwrap_or("morphable");
+            Relationship::MorphMany(rel) => {
                 format!("    public function {}()\n    {{\n        return $this->morphMany({}::class, '{}');\n    }}\n\n",
-                        method_name, relationship.model, morph_name)
+                        method_name, rel.model, rel.morph_name)
             },
-            RelationshipType::MorphToMany => {
-                let morph_name = relationship.morph_name.as_deref().unwrap_or("morphable");
-                if let Some(pivot_table) = &relationship.pivot_table {
+            Relationship::MorphToMany(rel) => {
+                if let Some(pivot_table) = &rel.pivot_table {
                     format!("    public function {}()\n    {{\n        return $this->morphToMany({}::class, '{}', '{}');\n    }}\n\n",
-                            method_name, relationship.model, morph_name, pivot_table)
+                            method_name, rel.model, rel.morph_name, pivot_table)
                 } else {
                     format!("    public function {}()\n    {{\n        return $this->morphToMany({}::class, '{}');\n    }}\n\n",
-                            method_name, relationship.model, morph_name)
+                            method_name, rel.model, rel.morph_name)
                 }
             },
         }

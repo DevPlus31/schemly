@@ -1,6 +1,6 @@
 [package]
 name = "schemly"
-version = "0.1.0"
+version = "0.8.0"
 edition = "2024"
 description = "A Laravel code generator from YAML configuration files"
 homepage = "https://schemly.dev/"
@@ -15,3 +15,8 @@ chrono = "0.4.41"
 serde_yaml = "0.9.34+deprecated"
 clap = { version = "4.0", features = ["derive"] }
 thiserror = "1.0"
+serde_json = "1.0.141"
+pathdiff = "0.2.3"
+
+[dev-dependencies]
+tempfile = "3.8"
