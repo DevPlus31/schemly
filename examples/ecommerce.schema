@@ -1,0 +1,209 @@
+// E-commerce System Example
+// Demonstrates: Complex relationships, enums, decimal fields, polymorphic relationships
+
+generator laravel {
+  provider = "schemly"
+  output = "./app"
+  namespace = "App\\Models"
+  generateModels = true
+  generateControllers = true
+  generateResources = true
+  generateFactories = true
+  generateMigrations = true
+  generateDto = true
+  useDddStructure = false
+  databaseEngine = "mysql"
+  forceOverwrite = true
+}
+
+enum ProductStatus {
+  active
+  inactive
+  out_of_stock
+}
+
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+  refunded
+}
+
+enum AddressType {
+  billing
+  shipping
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  firstName   String   @db.VarChar(50) @map("first_name") @validate("required|string|max:50")
+  lastName    String   @db.VarChar(50) @map("last_name") @validate("required|string|max:50")
+  email       String   @unique @db.VarChar(255) @validate("required|email|unique:users,email")
+  phone       String?  @db.VarChar(20) @validate("nullable|string|max:20")
+  dateOfBirth DateTime? @db.Date @map("date_of_birth") @validate("nullable|date|before:today")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  orders      Order[]
+  reviews     Review[]
+  addresses   Address[]
+  
+  @@map("users")
+  @@traits(["HasFactory", "Notifiable"])
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100) @validate("required|string|max:100|unique:categories,name")
+  slug        String    @unique @db.VarChar(100) @validate("required|string|max:100|unique:categories,slug")
+  description String?   @db.Text @validate("nullable|string")
+  parentId    Int?      @map("parent_id") @validate("nullable|exists:categories,id")
+  sortOrder   Int       @default(0) @map("sort_order") @validate("integer|min:0")
+  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  // Relationships
+  products    Product[]
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  
+  @@map("categories")
+  @@softDeletes
+}
+
+model Product {
+  id            Int           @id @default(autoincrement())
+  categoryId    Int           @map("category_id") @validate("required|exists:categories,id")
+  name          String        @db.VarChar(255) @validate("required|string|max:255")
+  slug          String        @unique @db.VarChar(255) @validate("required|string|max:255|unique:products,slug")
+  description   String?       @db.LongText @validate("nullable|string")
+  price         Decimal       @db.Decimal(10, 2) @validate("required|numeric|min:0")
+  comparePrice  Decimal?      @db.Decimal(10, 2) @map("compare_price") @validate("nullable|numeric|min:0")
+  sku           String        @unique @db.VarChar(100) @validate("required|string|max:100|unique:products,sku")
+  stockQuantity Int           @default(0) @map("stock_quantity") @validate("integer|min:0")
+  status        ProductStatus @default(active) @validate("required|in:active,inactive,out_of_stock")
+  weight        Decimal?      @db.Decimal(8, 3) @validate("nullable|numeric|min:0")
+  dimensions    String?       @db.Json @validate("nullable|array")
+  
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  deletedAt     DateTime?     @map("deleted_at")
+  
+  // Relationships
+  category      Category      @relation(fields: [categoryId], references: [id])
+  orderItems    OrderItem[]
+  reviews       Review[]
+  images        Image[]
+  
+  @@map("products")
+  @@softDeletes
+}
+
+model Order {
+  id             Int         @id @default(autoincrement())
+  userId         Int         @map("user_id") @validate("required|exists:users,id")
+  orderNumber    String      @unique @db.VarChar(50) @validate("required|string|max:50|unique:orders,order_number")
+  status         OrderStatus @default(pending) @validate("required|in:pending,processing,shipped,delivered,cancelled,refunded")
+  subtotal       Decimal     @db.Decimal(10, 2) @validate("required|numeric|min:0")
+  taxAmount      Decimal     @default(0.00) @db.Decimal(10, 2) @map("tax_amount") @validate("numeric|min:0")
+  shippingAmount Decimal     @default(0.00) @db.Decimal(10, 2) @map("shipping_amount") @validate("numeric|min:0")
+  totalAmount    Decimal     @db.Decimal(10, 2) @map("total_amount") @validate("required|numeric|min:0")
+  notes          String?     @db.Text @validate("nullable|string")
+  shippedAt      DateTime?   @map("shipped_at") @validate("nullable|date")
+  
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  
+  // Relationships
+  user           User        @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int      @map("order_id") @validate("required|exists:orders,id")
+  productId  Int      @map("product_id") @validate("required|exists:products,id")
+  quantity   Int      @validate("required|integer|min:1")
+  unitPrice  Decimal  @db.Decimal(10, 2) @map("unit_price") @validate("required|numeric|min:0")
+  totalPrice Decimal  @db.Decimal(10, 2) @map("total_price") @validate("required|numeric|min:0")
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+  
+  @@map("order_items")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id") @validate("required|exists:users,id")
+  productId  Int      @map("product_id") @validate("required|exists:products,id")
+  rating     Int      @db.TinyInt @validate("required|integer|between:1,5")
+  title      String?  @db.VarChar(255) @validate("nullable|string|max:255")
+  comment    String?  @db.Text @validate("nullable|string")
+  isVerified Boolean  @default(false) @map("is_verified") @validate("boolean")
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  
+  // Relationships
+  user       User     @relation(fields: [userId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+  
+  @@map("reviews")
+  @@softDeletes
+}
+
+model Address {
+  id            Int         @id @default(autoincrement())
+  userId        Int         @map("user_id") @validate("required|exists:users,id")
+  type          AddressType @validate("required|in:billing,shipping")
+  firstName     String      @db.VarChar(50) @map("first_name") @validate("required|string|max:50")
+  lastName      String      @db.VarChar(50) @map("last_name") @validate("required|string|max:50")
+  company       String?     @db.VarChar(100) @validate("nullable|string|max:100")
+  addressLine1  String      @db.VarChar(255) @map("address_line_1") @validate("required|string|max:255")
+  addressLine2  String?     @db.VarChar(255) @map("address_line_2") @validate("nullable|string|max:255")
+  city          String      @db.VarChar(100) @validate("required|string|max:100")
+  state         String      @db.VarChar(100) @validate("required|string|max:100")
+  postalCode    String      @db.VarChar(20) @map("postal_code") @validate("required|string|max:20")
+  country       String      @db.VarChar(2) @validate("required|string|size:2")
+  isDefault     Boolean     @default(false) @map("is_default") @validate("boolean")
+  
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  
+  // Relationships
+  user          User        @relation(fields: [userId], references: [id])
+  
+  @@map("addresses")
+}
+
+model Image {
+  id            Int      @id @default(autoincrement())
+  imageableId   Int      @map("imageable_id") @validate("required|integer")
+  imageableType String   @map("imageable_type") @validate("required|string")
+  filename      String   @db.VarChar(255) @validate("required|string|max:255")
+  originalName  String   @db.VarChar(255) @map("original_name") @validate("required|string|max:255")
+  mimeType      String   @db.VarChar(100) @map("mime_type") @validate("required|string|max:100")
+  size          Int      @validate("required|integer|min:0")
+  altText       String?  @db.VarChar(255) @map("alt_text") @validate("nullable|string|max:255")
+  sortOrder     Int      @default(0) @map("sort_order") @validate("integer|min:0")
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  @@map("images")
+}
+

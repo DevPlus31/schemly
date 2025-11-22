@@ -1,0 +1,219 @@
+// Advanced Blog System Example
+// Demonstrates: Many-to-many relationships, polymorphic comments, tagging system, DDD structure
+
+generator laravel {
+  provider = "schemly"
+  output = "./app"
+  namespace = "App\\Domain"
+  generateModels = true
+  generateControllers = true
+  generateResources = true
+  generateFactories = true
+  generateMigrations = true
+  generateDto = true
+  useDddStructure = true
+  databaseEngine = "mysql"
+  forceOverwrite = true
+}
+
+enum UserRole {
+  admin
+  editor
+  author
+  subscriber
+}
+
+enum PostStatus {
+  draft
+  published
+  scheduled
+  archived
+}
+
+enum CommentStatus {
+  pending
+  approved
+  spam
+  rejected
+}
+
+enum NewsletterStatus {
+  draft
+  scheduled
+  sent
+}
+
+enum SubscriberStatus {
+  active
+  unsubscribed
+  bounced
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  username        String    @unique @db.VarChar(50) @validate("required|string|max:50|unique:users,username|alpha_dash")
+  email           String    @unique @db.VarChar(255) @validate("required|email|unique:users,email")
+  firstName       String    @db.VarChar(50) @map("first_name") @validate("required|string|max:50")
+  lastName        String    @db.VarChar(50) @map("last_name") @validate("required|string|max:50")
+  bio             String?   @db.Text @validate("nullable|string|max:1000")
+  avatar          String?   @db.VarChar(255) @validate("nullable|url")
+  role            UserRole  @default(subscriber) @validate("required|in:admin,editor,author,subscriber")
+  emailVerifiedAt DateTime? @map("email_verified_at") @validate("nullable|date")
+  lastLoginAt     DateTime? @map("last_login_at") @validate("nullable|date")
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Relationships
+  posts           Post[]    @relation("AuthorPosts")
+  comments        Comment[]
+  likedPosts      Post[]    @relation("PostLikes")
+  
+  @@map("users")
+  @@traits(["HasFactory", "Notifiable"])
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100) @validate("required|string|max:100|unique:categories,name")
+  slug        String   @unique @db.VarChar(100) @validate("required|string|max:100|unique:categories,slug|alpha_dash")
+  description String?  @db.Text @validate("nullable|string")
+  color       String?  @db.VarChar(7) @validate("nullable|string|regex:/^#[0-9A-Fa-f]{6}$/")
+  icon        String?  @db.VarChar(50) @validate("nullable|string|max:50")
+  sortOrder   Int      @default(0) @map("sort_order") @validate("integer|min:0")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  // Relationships
+  posts       Post[]
+  
+  @@map("categories")
+  @@softDeletes
+}
+
+model Tag {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50) @validate("required|string|max:50|unique:tags,name")
+  slug        String   @unique @db.VarChar(50) @validate("required|string|max:50|unique:tags,slug|alpha_dash")
+  description String?  @db.Text @validate("nullable|string")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  posts       Post[]
+  
+  @@map("tags")
+}
+
+model Post {
+  id              Int        @id @default(autoincrement())
+  authorId        Int        @map("author_id") @validate("required|exists:users,id")
+  title           String     @db.VarChar(255) @validate("required|string|max:255")
+  slug            String     @unique @db.VarChar(255) @validate("required|string|max:255|unique:posts,slug|alpha_dash")
+  excerpt         String?    @db.Text @validate("nullable|string|max:500")
+  content         String     @db.LongText @validate("required|string")
+  featuredImage   String?    @db.VarChar(255) @map("featured_image") @validate("nullable|url")
+  status          PostStatus @default(draft) @validate("required|in:draft,published,scheduled,archived")
+  publishedAt     DateTime?  @map("published_at") @validate("nullable|date")
+  scheduledAt     DateTime?  @map("scheduled_at") @validate("nullable|date|after:now")
+  viewCount       Int        @default(0) @map("view_count") @validate("integer|min:0")
+  readingTime     Int?       @map("reading_time") @validate("nullable|integer|min:1")
+  metaTitle       String?    @db.VarChar(60) @map("meta_title") @validate("nullable|string|max:60")
+  metaDescription String?    @db.VarChar(160) @map("meta_description") @validate("nullable|string|max:160")
+  isFeatured      Boolean    @default(false) @map("is_featured") @validate("boolean")
+  allowComments   Boolean    @default(true) @map("allow_comments") @validate("boolean")
+  
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  deletedAt       DateTime?  @map("deleted_at")
+  
+  // Relationships
+  author          User       @relation("AuthorPosts", fields: [authorId], references: [id])
+  categories      Category[]
+  tags            Tag[]
+  likedBy         User[]     @relation("PostLikes")
+  comments        Comment[]
+  
+  @@map("posts")
+  @@softDeletes
+}
+
+model Comment {
+  id              Int           @id @default(autoincrement())
+  userId          Int           @map("user_id") @validate("required|exists:users,id")
+  commentableId   Int           @map("commentable_id") @validate("required|integer")
+  commentableType String        @map("commentable_type") @validate("required|string")
+  parentId        Int?          @map("parent_id") @validate("nullable|exists:comments,id")
+  content         String        @db.Text @validate("required|string|max:1000")
+  status          CommentStatus @default(pending) @validate("required|in:pending,approved,spam,rejected")
+  ipAddress       String?       @db.Inet @map("ip_address") @validate("nullable|ip")
+  userAgent       String?       @db.Text @map("user_agent") @validate("nullable|string")
+  
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+  
+  // Relationships
+  user            User          @relation(fields: [userId], references: [id])
+  parent          Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
+  replies         Comment[]     @relation("CommentReplies")
+  
+  @@map("comments")
+  @@softDeletes
+}
+
+model Media {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id") @validate("required|exists:users,id")
+  filename     String   @db.VarChar(255) @validate("required|string|max:255")
+  originalName String   @db.VarChar(255) @map("original_name") @validate("required|string|max:255")
+  mimeType     String   @db.VarChar(100) @map("mime_type") @validate("required|string|max:100")
+  size         Int      @validate("required|integer|min:0")
+  path         String   @db.VarChar(500) @validate("required|string|max:500")
+  altText      String?  @db.VarChar(255) @map("alt_text") @validate("nullable|string|max:255")
+  caption      String?  @db.Text @validate("nullable|string")
+  metadata     String?  @db.Json @validate("nullable|array")
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  user         User     @relation(fields: [userId], references: [id])
+  
+  @@map("media")
+}
+
+model Newsletter {
+  id             Int               @id @default(autoincrement())
+  subject        String            @db.VarChar(255) @validate("required|string|max:255")
+  content        String            @db.LongText @validate("required|string")
+  status         NewsletterStatus  @default(draft) @validate("required|in:draft,scheduled,sent")
+  scheduledAt    DateTime?         @map("scheduled_at") @validate("nullable|date|after:now")
+  sentAt         DateTime?         @map("sent_at") @validate("nullable|date")
+  recipientCount Int               @default(0) @map("recipient_count") @validate("integer|min:0")
+  
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  
+  @@map("newsletters")
+}
+
+model Subscriber {
+  id              Int              @id @default(autoincrement())
+  email           String           @unique @db.VarChar(255) @validate("required|email|unique:subscribers,email")
+  firstName       String?          @db.VarChar(50) @map("first_name") @validate("nullable|string|max:50")
+  lastName        String?          @db.VarChar(50) @map("last_name") @validate("nullable|string|max:50")
+  status          SubscriberStatus @default(active) @validate("required|in:active,unsubscribed,bounced")
+  subscribedAt    DateTime?        @map("subscribed_at") @validate("nullable|date")
+  unsubscribedAt  DateTime?        @map("unsubscribed_at") @validate("nullable|date")
+  emailVerifiedAt DateTime?        @map("email_verified_at") @validate("nullable|date")
+  
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  
+  @@map("subscribers")
+}
+

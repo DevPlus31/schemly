@@ -34,14 +34,7 @@ impl Validator {
                 ));
             }
         }
-        
-        // Validate that ID field is not manually defined (it's auto-generated)
-        if model.fields.iter().any(|f| f.name == "id") {
-            return Err(GeneratorError::ModelValidation(
-                format!("Model '{}' should not manually define 'id' field - it's auto-generated", model.name)
-            ));
-        }
-        
+
         Ok(())
     }
     

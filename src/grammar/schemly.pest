@@ -1,0 +1,99 @@
+// ---------------------------------------------------------
+// 1. WHITESPACE & COMMENTS
+// ---------------------------------------------------------
+// We treat spaces, tabs, and newlines as whitespace.
+// We allow // comments.
+// The '_' prefix means these are "silent" rules (they don't appear in the output pairs).
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
+
+// ---------------------------------------------------------
+// 2. BASIC ATOMS
+// ---------------------------------------------------------
+// Identifiers: alphanumeric + underscore (e.g., "User", "first_name")
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+// Literals for values inside attributes (e.g., "min:5", true, 10)
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+int_lit    = @{ ASCII_DIGIT+ }
+bool_lit   = { "true" | "false" }
+// Array: ["value1", "value2"]
+array_lit  = { "[" ~ (value ~ ("," ~ value)*)? ~ "]" }
+// Function call: autoincrement(), now(), env("DATABASE_URL")
+function_call = { identifier ~ "(" ~ (value ~ ("," ~ value)*)? ~ ")" }
+// A value can be a literal, array, function call, or a reference (like Role.ADMIN)
+value      = { array_lit | function_call | string_lit | int_lit | bool_lit | identifier }
+
+// ---------------------------------------------------------
+// 3. ATTRIBUTES
+// ---------------------------------------------------------
+// Named argument: fields: [userId], onDelete: Cascade
+named_arg = { identifier ~ ":" ~ value }
+
+// Argument can be positional or named
+arg = { named_arg | value }
+
+// Arguments list: ("admin", 10) or (fields: [userId], references: [id])
+args = { "(" ~ arg ~ ("," ~ arg)* ~ ")" }
+
+// Dotted identifier for namespaced attributes: db.VarChar, laravel.traits
+dotted_identifier = @{ identifier ~ ("." ~ identifier)* }
+
+// Field Attribute: @unique, @default("text"), @db.VarChar(255)
+attr_field = { "@" ~ dotted_identifier ~ args? }
+
+// Block Attribute: @@index, @@timestamps, @@traits(["HasFactory"])
+attr_block = { "@@" ~ dotted_identifier ~ args? }
+
+// ---------------------------------------------------------
+// 4. FIELDS
+// ---------------------------------------------------------
+// Modifiers allow for array syntax (Post[]) or nullable (String?)
+modifier_array    = { "[]" }
+modifier_nullable = { "?" }
+
+// Structure: name type modifiers attributes
+// Example: email String? @unique
+field_decl = {
+    identifier ~       // name
+    identifier ~       // type
+    modifier_array? ~  // []
+    modifier_nullable? ~ // ?
+    attr_field* // list of @attributes
+}
+
+// ---------------------------------------------------------
+// 5. BLOCKS
+// ---------------------------------------------------------
+
+// CONFIG BLOCK
+// config { namespace: "App", version: 2 }
+config_pair  = { identifier ~ ":" ~ value }
+config_block = { "config" ~ "{" ~ config_pair* ~ "}" }
+
+// GENERATOR BLOCK (Prisma-like)
+// generator laravel { provider = "schemly", output = "./app" }
+generator_pair  = { identifier ~ "=" ~ value }
+generator_block = { "generator" ~ identifier ~ "{" ~ generator_pair* ~ "}" }
+
+// DATASOURCE BLOCK (Prisma-like)
+// datasource db { provider = "mysql", url = env("DATABASE_URL") }
+datasource_pair  = { identifier ~ "=" ~ value }
+datasource_block = { "datasource" ~ identifier ~ "{" ~ datasource_pair* ~ "}" }
+
+// ENUM BLOCK
+// enum Role { ADMIN, USER }
+enum_val   = { identifier }
+enum_block = { "enum" ~ identifier ~ "{" ~ enum_val* ~ "}" }
+
+// MODEL BLOCK
+// model User { ... }
+// Can contain field declarations OR block attributes
+model_content = { field_decl | attr_block }
+model_block   = { "model" ~ identifier ~ "{" ~ model_content* ~ "}" }
+
+// ---------------------------------------------------------
+// 6. ROOT
+// ---------------------------------------------------------
+// The file can contain any number of these blocks in any order.
+schema = { SOI ~ (generator_block | datasource_block | config_block | model_block | enum_block)* ~ EOI }

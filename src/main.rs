@@ -1,13 +1,13 @@
-mod config;
 mod error;
 mod generators;
 mod interactive;
+mod schema;
 mod template;
 mod types;
 mod utils;
 mod validation;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use error::Result;
 use generators::*;
 use std::fs;
@@ -28,6 +28,9 @@ struct GenerationStats {
     skipped: usize,
     errors: usize,
 }
+
+
+
 
 fn safe_write_file(file_path: &str, content: &str, force: bool) -> Result<WriteResult> {
     if force {
@@ -51,84 +54,95 @@ fn safe_write_file(file_path: &str, content: &str, force: bool) -> Result<WriteR
 
 #[derive(Parser)]
 #[command(name = "schemly")]
-#[command(about = "A Larav el code generator from YAML configuration")]
-#[command(long_about = "Generate Laravel models, controllers, resources, factories, migrations, and pivot tables from YAML configuration files.
+#[command(version)]
+#[command(about = "A Laravel code generator from Prisma-like schema files")]
+#[command(long_about = "Generate Laravel models, controllers, resources, factories, migrations, and pivot tables from Prisma-like schema files.
 
 EXAMPLES:
-    schemly --config models.yml                    # Generate all components
-    schemly --config models.yml --only-models     # Generate only models
-    schemly --config models.yml --force           # Overwrite existing files
-    schemly --config models.yml --output /path/to/laravel-project
+    schemly init                                      # Create default schema.schemly file
+    schemly generate                                  # Generate all components
+    schemly generate --dry-run                        # Preview what would be generated
+    schemly generate --force                          # Overwrite existing files
+    schemly generate --only models,migrations         # Generate only specific components
+    schemly watch                                     # Watch schema file and auto-generate
+    schemly doctor                                    # Check Laravel project compatibility
 
 SAFETY:
     By default, existing files are NOT overwritten. Use --force to overwrite.")]
 struct Cli {
-    #[arg(short, long, help = "Path to YAML configuration file")]
-    config: String,
+    #[command(subcommand)]
+    command: Commands,
 
-    #[arg(
-        short,
-        long,
-        default_value = ".",
-        help = "Laravel project root directory"
-    )]
-    output: String,
+    /// Path to schema file (default: ./schema.schemly)
+    #[arg(short, long, global = true)]
+    file: Option<String>,
 
-    // Exclusion flags (skip generation)
-    #[arg(long, help = "Skip model generation")]
-    no_models: bool,
+    /// Print detailed logs
+    #[arg(short, long, global = true)]
+    verbose: bool,
+}
 
-    #[arg(long, help = "Skip controller generation")]
-    no_controllers: bool,
+#[derive(Subcommand)]
+enum Commands {
+    /// Creates a default schema.schemly file
+    Init {
+        /// Output path for the schema file
+        #[arg(short, long, default_value = "schema.schemly")]
+        output: String,
 
-    #[arg(long, help = "Skip resource generation")]
-    no_resources: bool,
+        /// Force overwrite if file exists
+        #[arg(long)]
+        force: bool,
+    },
 
-    #[arg(long, help = "Skip factory generation")]
-    no_factories: bool,
+    /// Compiles the schema into Laravel code
+    Generate {
+        /// Laravel project root directory
+        #[arg(short, long, default_value = ".")]
+        output: String,
 
-    #[arg(long, help = "Skip migration generation")]
-    no_migrations: bool,
+        /// Preview what would be generated without writing files
+        #[arg(long)]
+        dry_run: bool,
 
-    #[arg(long, help = "Skip pivot table generation")]
-    no_pivot_tables: bool,
+        /// Force overwrite existing files
+        #[arg(long)]
+        force: bool,
 
-    // Inclusion flags (generate only specified types)
-    #[arg(long, help = "Generate only models")]
-    only_models: bool,
+        /// Generate only specific components (comma-separated: models,migrations,controllers,resources,factories,dtos)
+        #[arg(long, value_delimiter = ',')]
+        only: Option<Vec<String>>,
 
-    #[arg(long, help = "Generate only controllers")]
-    only_controllers: bool,
+        /// Use Domain-Driven Design folder structure
+        #[arg(long)]
+        ddd: bool,
 
-    #[arg(long, help = "Generate only resources")]
-    only_resources: bool,
+        /// Interactive mode for selecting models and components
+        #[arg(short, long)]
+        interactive: bool,
+    },
 
-    #[arg(long, help = "Generate only factories")]
-    only_factories: bool,
+    /// Watches the schema file and auto-generates on save
+    Watch {
+        /// Laravel project root directory
+        #[arg(short, long, default_value = ".")]
+        output: String,
 
-    #[arg(long, help = "Generate only migrations")]
-    only_migrations: bool,
+        /// Force overwrite existing files
+        #[arg(long)]
+        force: bool,
 
-    #[arg(long, help = "Generate only pivot tables")]
-    only_pivot_tables: bool,
+        /// Generate only specific components (comma-separated)
+        #[arg(long, value_delimiter = ',')]
+        only: Option<Vec<String>>,
+    },
 
-    #[arg(long, help = "Generate only DTOs")]
-    only_dto: bool,
-
-    #[arg(long, help = "Skip DTO generation")]
-    no_dto: bool,
-
-    #[arg(long, help = "Use Domain-Driven Design folder structure")]
-    ddd: bool,
-
-    #[arg(long, help = "Use traditional Laravel folder structure")]
-    no_ddd: bool,
-
-    #[arg(short = 'i', long, help = "Interactive mode for selecting models and components")]
-    interactive: bool,
-
-    #[arg(long, help = "Force overwrite existing files")]
-    force: bool,
+    /// Checks your Laravel project for compatibility
+    Doctor {
+        /// Laravel project root directory
+        #[arg(short, long, default_value = ".")]
+        path: String,
+    },
 }
 
 struct LaravelGenerator {
@@ -136,15 +150,14 @@ struct LaravelGenerator {
 }
 
 impl LaravelGenerator {
-    pub fn new(yaml_content: &str) -> Result<Self> {
-        let config: Config = serde_yaml::from_str(yaml_content)?;
+    pub fn from_file(file_path: &str) -> Result<Self> {
+        let schema_content = fs::read_to_string(file_path)?;
+        let schema = schema::parse_schema(&schema_content)
+            .map_err(|e| error::GeneratorError::ParseError(e))?;
+        let config = schema::SchemaConverter::convert_to_config(schema)
+            .map_err(|e| error::GeneratorError::ParseError(e))?;
         config.validate()?;
         Ok(LaravelGenerator { config })
-    }
-
-    pub fn from_file(file_path: &str) -> Result<Self> {
-        let yaml_content = fs::read_to_string(file_path)?;
-        Self::new(&yaml_content)
     }
 
     pub fn generate_all(&self) -> Result<()> {
@@ -371,179 +384,261 @@ impl Config {
     }
 }
 
-// CLI validation functions
-fn validate_generation_flags(cli: &Cli) -> Result<()> {
-    // Check for conflicting DDD flags
-    if cli.ddd && cli.no_ddd {
-        return Err(error::GeneratorError::ModelValidation(
-            "Error: Cannot use both --ddd and --no-ddd flags".to_string(),
-        ));
-    }
+// Helper functions
+fn parse_only_components(only: &Option<Vec<String>>) -> (bool, bool, bool, bool, bool, bool, bool) {
+    if let Some(components) = only {
+        let mut models = false;
+        let mut controllers = false;
+        let mut resources = false;
+        let mut factories = false;
+        let mut migrations = false;
+        let mut pivot_tables = false;
+        let mut dtos = false;
 
-    // Check if at least one component type will be enabled
-    if has_only_flags(cli) {
-        let enabled_count = [
-            cli.only_models,
-            cli.only_controllers,
-            cli.only_resources,
-            cli.only_factories,
-            cli.only_migrations,
-            cli.only_pivot_tables,
-            cli.only_dto,
-        ]
-        .iter()
-        .filter(|&&x| x)
-        .count();
-
-        if enabled_count == 0 {
-            return Err(error::GeneratorError::ModelValidation(
-                "Error: At least one component type must be enabled when using --only-* flags"
-                    .to_string(),
-            ));
+        for component in components {
+            match component.to_lowercase().as_str() {
+                "models" | "model" => models = true,
+                "controllers" | "controller" => controllers = true,
+                "resources" | "resource" => resources = true,
+                "factories" | "factory" => factories = true,
+                "migrations" | "migration" => migrations = true,
+                "pivot" | "pivots" | "pivot_tables" => pivot_tables = true,
+                "dtos" | "dto" => dtos = true,
+                _ => eprintln!("⚠️  Warning: Unknown component '{}'", component),
+            }
         }
+
+        (models, controllers, resources, factories, migrations, pivot_tables, dtos)
     } else {
-        // Check if all components are disabled with --no-* flags
-        let disabled_count = [
-            cli.no_models,
-            cli.no_controllers,
-            cli.no_resources,
-            cli.no_factories,
-            cli.no_migrations,
-            cli.no_pivot_tables,
-            cli.no_dto,
-        ]
-        .iter()
-        .filter(|&&x| x)
-        .count();
-
-        if disabled_count == 7 {
-            return Err(error::GeneratorError::ModelValidation(
-                "Error: At least one component type must be enabled for generation".to_string(),
-            ));
-        }
+        // Default: generate all
+        (true, true, true, true, true, true, true)
     }
-
-    Ok(())
 }
 
-fn has_only_flags(cli: &Cli) -> bool {
-    cli.only_models
-        || cli.only_controllers
-        || cli.only_resources
-        || cli.only_factories
-        || cli.only_migrations
-        || cli.only_pivot_tables
-        || cli.only_dto
-}
-
-fn get_enabled_components(cli: &Cli) -> Vec<String> {
+fn get_enabled_components_list(
+    models: bool,
+    controllers: bool,
+    resources: bool,
+    factories: bool,
+    migrations: bool,
+    pivot_tables: bool,
+    dtos: bool,
+) -> Vec<String> {
     let mut enabled = Vec::new();
-
-    if has_only_flags(cli) {
-        if cli.only_models {
-            enabled.push("models".to_string());
-        }
-        if cli.only_controllers {
-            enabled.push("controllers".to_string());
-        }
-        if cli.only_resources {
-            enabled.push("resources".to_string());
-        }
-        if cli.only_factories {
-            enabled.push("factories".to_string());
-        }
-        if cli.only_migrations {
-            enabled.push("migrations".to_string());
-        }
-        if cli.only_pivot_tables {
-            enabled.push("pivot tables".to_string());
-        }
-        if cli.only_dto {
-            enabled.push("DTOs".to_string());
-        }
-    } else {
-        if !cli.no_models {
-            enabled.push("models".to_string());
-        }
-        if !cli.no_controllers {
-            enabled.push("controllers".to_string());
-        }
-        if !cli.no_resources {
-            enabled.push("resources".to_string());
-        }
-        if !cli.no_factories {
-            enabled.push("factories".to_string());
-        }
-        if !cli.no_migrations {
-            enabled.push("migrations".to_string());
-        }
-        if !cli.no_pivot_tables {
-            enabled.push("pivot tables".to_string());
-        }
-        if !cli.no_dto {
-            enabled.push("DTOs".to_string());
-        }
-    }
-
+    if models { enabled.push("models".to_string()); }
+    if controllers { enabled.push("controllers".to_string()); }
+    if resources { enabled.push("resources".to_string()); }
+    if factories { enabled.push("factories".to_string()); }
+    if migrations { enabled.push("migrations".to_string()); }
+    if pivot_tables { enabled.push("pivot tables".to_string()); }
+    if dtos { enabled.push("DTOs".to_string()); }
     enabled
+}
+
+fn get_schema_path(file: &Option<String>) -> String {
+    file.clone().unwrap_or_else(|| "schema.schemly".to_string())
+}
+
+fn create_default_schema() -> &'static str {
+    r#"// Schemly Schema File
+// Learn more: https://schemly.dev/docs
+
+generator laravel {
+  provider = "schemly"
+  output   = "./app"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Example model
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  posts     Post[]
+
+  @@map("users")
+  @@traits(["HasFactory", "Notifiable"])
+  @@fillable(["name", "email", "password"])
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(255)
+  content   String   @db.LongText
+  published Boolean  @default(false)
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("posts")
+  @@traits(["HasFactory"])
+  @@fillable(["title", "content", "published", "user_id"])
+}
+"#
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Validate CLI flags
-    validate_generation_flags(&cli)?;
+    match &cli.command {
+        Commands::Init { output, force } => {
+            handle_init(output, *force)
+        }
+        Commands::Generate { output, dry_run, force, only, ddd, interactive } => {
+            handle_generate(&cli, output, *dry_run, *force, only, *ddd, *interactive)
+        }
+        Commands::Watch { output, force, only } => {
+            handle_watch(&cli, output, *force, only)
+        }
+        Commands::Doctor { path } => {
+            handle_doctor(path)
+        }
+    }
+}
 
-    let mut generator = LaravelGenerator::from_file(&cli.config)?;
+fn handle_init(output: &str, force: bool) -> Result<()> {
+    let path = Path::new(output);
+
+    if path.exists() && !force {
+        return Err(error::GeneratorError::ModelValidation(
+            format!("File '{}' already exists. Use --force to overwrite.", output)
+        ));
+    }
+
+    fs::write(output, create_default_schema())?;
+    println!("✓ Created {}", output);
+    println!("\nNext steps:");
+    println!("  1. Edit {} to define your models", output);
+    println!("  2. Run 'schemly generate' to create Laravel code");
+
+    Ok(())
+}
+
+fn handle_generate(
+    cli: &Cli,
+    output: &str,
+    dry_run: bool,
+    force: bool,
+    only: &Option<Vec<String>>,
+    ddd: bool,
+    interactive: bool,
+) -> Result<()> {
+    let schema_path = get_schema_path(&cli.file);
+
+    if cli.verbose {
+        println!("📄 Reading schema from: {}", schema_path);
+    }
+
+    let mut generator = LaravelGenerator::from_file(&schema_path)?;
 
     // Handle interactive mode
-    if cli.interactive {
+    if interactive {
         generator.config = interactive::InteractiveMode::run(generator.config)?;
     }
 
-    // Override config with CLI options
-    generator.config.output_dir = cli.output.clone();
-    generator.config.force_overwrite = cli.force;
+    // Parse --only components
+    let (gen_models, gen_controllers, gen_resources, gen_factories, gen_migrations, gen_pivot, gen_dtos)
+        = parse_only_components(only);
 
-    // Apply DDD structure flags
-    if cli.ddd {
-        generator.config.use_ddd_structure = true;
-    } else if cli.no_ddd {
-        generator.config.use_ddd_structure = false;
+    // Override config with CLI options
+    generator.config.output_dir = output.to_string();
+    generator.config.force_overwrite = force;
+    generator.config.use_ddd_structure = ddd;
+
+    // Apply component selection (only if not in interactive mode)
+    if !interactive {
+        generator.config.generate_models = gen_models;
+        generator.config.generate_controllers = gen_controllers;
+        generator.config.generate_resources = gen_resources;
+        generator.config.generate_factories = gen_factories;
+        generator.config.generate_migrations = gen_migrations;
+        generator.config.generate_pivot_tables = gen_pivot;
+        generator.config.generate_dto = gen_dtos;
     }
 
     // Warn user about force flag
-    if cli.force {
+    if force {
         println!("⚠️  Warning: --force flag enabled. Existing files will be overwritten!");
     }
 
-    // Apply generation flags with proper precedence (only if not in interactive mode)
-    if !cli.interactive {
-        if has_only_flags(&cli) {
-            // When --only-* flags are used, disable all then enable only specified
-            generator.config.generate_models = cli.only_models;
-            generator.config.generate_controllers = cli.only_controllers;
-            generator.config.generate_resources = cli.only_resources;
-            generator.config.generate_factories = cli.only_factories;
-            generator.config.generate_migrations = cli.only_migrations;
-            generator.config.generate_pivot_tables = cli.only_pivot_tables;
-            generator.config.generate_dto = cli.only_dto;
-        } else {
-            // When --no-* flags are used, start with defaults and disable specified
-            generator.config.generate_models = !cli.no_models;
-            generator.config.generate_controllers = !cli.no_controllers;
-            generator.config.generate_resources = !cli.no_resources;
-            generator.config.generate_factories = !cli.no_factories;
-            generator.config.generate_migrations = !cli.no_migrations;
-            generator.config.generate_pivot_tables = !cli.no_pivot_tables;
-            generator.config.generate_dto = !cli.no_dto;
+    // Log which components will be generated
+    let enabled_components = get_enabled_components_list(
+        generator.config.generate_models,
+        generator.config.generate_controllers,
+        generator.config.generate_resources,
+        generator.config.generate_factories,
+        generator.config.generate_migrations,
+        generator.config.generate_pivot_tables,
+        generator.config.generate_dto,
+    );
+
+    if dry_run {
+        println!("🔍 Dry run mode - no files will be written\n");
+        println!("Would generate: {}", enabled_components.join(", "));
+        println!("Output directory: {}", output);
+        println!("DDD structure: {}", if ddd { "enabled" } else { "disabled" });
+        println!("\nModels to process:");
+        for model in &generator.config.models {
+            println!("  - {}", model.name);
         }
+        return Ok(());
     }
 
-    // Log which components will be generated
-    let enabled_components = get_enabled_components(&cli);
     println!("Generating: {}", enabled_components.join(", "));
-
     generator.generate_all()?;
+    Ok(())
+}
+
+fn handle_watch(_cli: &Cli, _output: &str, _force: bool, _only: &Option<Vec<String>>) -> Result<()> {
+    println!("⚠️  Watch mode is not yet implemented.");
+    println!("This feature will automatically regenerate code when the schema file changes.");
+    Ok(())
+}
+
+fn handle_doctor(path: &str) -> Result<()> {
+    println!("🔍 Checking Laravel project at: {}\n", path);
+
+    let path_obj = Path::new(path);
+
+    // Check if it's a Laravel project
+    let composer_json = path_obj.join("composer.json");
+    let artisan = path_obj.join("artisan");
+
+    if !composer_json.exists() {
+        println!("❌ composer.json not found");
+        return Ok(());
+    }
+
+    if !artisan.exists() {
+        println!("❌ artisan file not found");
+        return Ok(());
+    }
+
+    println!("✓ Valid Laravel project detected");
+
+    // Check directory structure
+    let app_dir = path_obj.join("app");
+    let models_dir = app_dir.join("Models");
+    let controllers_dir = app_dir.join("Http/Controllers");
+    let migrations_dir = path_obj.join("database/migrations");
+
+    println!("\nDirectory structure:");
+    println!("  {} app/", if app_dir.exists() { "✓" } else { "❌" });
+    println!("  {} app/Models/", if models_dir.exists() { "✓" } else { "❌" });
+    println!("  {} app/Http/Controllers/", if controllers_dir.exists() { "✓" } else { "❌" });
+    println!("  {} database/migrations/", if migrations_dir.exists() { "✓" } else { "❌" });
+
+    println!("\n✓ Project is ready for code generation");
+
     Ok(())
 }
