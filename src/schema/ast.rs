@@ -109,28 +109,12 @@ impl Schema {
         }
     }
 
-    pub fn add_generator(&mut self, generator: Generator) {
-        self.generators.push(generator);
-    }
-
-    pub fn add_datasource(&mut self, datasource: Datasource) {
-        self.datasources.push(datasource);
-    }
-
     pub fn add_model(&mut self, model: Model) {
         self.models.push(model);
     }
 
     pub fn add_enum(&mut self, enum_def: Enum) {
         self.enums.push(enum_def);
-    }
-
-    pub fn find_model(&self, name: &str) -> Option<&Model> {
-        self.models.iter().find(|m| m.name == name)
-    }
-
-    pub fn find_enum(&self, name: &str) -> Option<&Enum> {
-        self.enums.iter().find(|e| e.name == name)
     }
 }
 
@@ -149,10 +133,6 @@ impl Model {
 
     pub fn add_attribute(&mut self, attribute: ModelAttribute) {
         self.attributes.push(attribute);
-    }
-
-    pub fn find_field(&self, name: &str) -> Option<&Field> {
-        self.fields.iter().find(|f| f.name == name)
     }
 
     pub fn get_attribute(&self, name: &str) -> Option<&ModelAttribute> {

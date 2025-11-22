@@ -167,43 +167,7 @@ impl Validator {
         
         Ok(())
     }
-    
-    /// Sanitizes a field name to ensure it's valid for PHP
-    pub fn sanitize_field_name(name: &str) -> Result<String> {
-        if name.is_empty() {
-            return Err(GeneratorError::InvalidIdentifier(
-                "Field name cannot be empty".to_string()
-            ));
-        }
-        
-        let mut sanitized = String::new();
-        
-        // Handle first character
-        let first_char = name.chars().next().unwrap();
-        if first_char.is_ascii_alphabetic() || first_char == '_' {
-            sanitized.push(first_char);
-        } else if first_char.is_ascii_digit() {
-            sanitized.push('_');
-            sanitized.push(first_char);
-        } else {
-            sanitized.push('_');
-        }
-        
-        // Handle remaining characters
-        for c in name.chars().skip(1) {
-            if c.is_ascii_alphanumeric() || c == '_' {
-                sanitized.push(c);
-            } else {
-                sanitized.push('_');
-            }
-        }
-        
-        // Validate the sanitized name
-        Self::validate_identifier(&sanitized, "Sanitized field name")?;
-        
-        Ok(sanitized)
-    }
-    
+
     /// Checks if a string is a PHP reserved word
     fn is_php_reserved_word(word: &str) -> bool {
         const PHP_RESERVED_WORDS: &[&str] = &[
