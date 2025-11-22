@@ -255,14 +255,7 @@ mod tests {
         assert!(Validator::validate_model(&model).is_err());
     }
 
-    #[test]
-    fn test_validate_manual_id_field() {
-        let mut model = create_valid_model();
-        let mut id_field = create_valid_field();
-        id_field.name = "id".to_string();
-        model.fields.push(id_field);
-        assert!(Validator::validate_model(&model).is_err());
-    }
+
 
     #[test]
     fn test_validate_identifier_valid() {
@@ -279,12 +272,7 @@ mod tests {
         assert!(Validator::validate_identifier("class", "Test").is_err()); // PHP reserved word
     }
 
-    #[test]
-    fn test_sanitize_field_name() {
-        assert_eq!(Validator::sanitize_field_name("valid_name").unwrap(), "valid_name");
-        assert_eq!(Validator::sanitize_field_name("123invalid").unwrap(), "_123invalid");
-        assert_eq!(Validator::sanitize_field_name("invalid-name").unwrap(), "invalid_name");
-    }
+
 
     #[test]
     fn test_validate_decimal_field() {

@@ -229,25 +229,25 @@ impl SchemaConverter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::ast::*;
+    use crate::schema::ast;
 
     #[test]
     fn test_convert_simple_model() {
-        let mut schema = Schema::new();
-        
-        let mut model = Model::new("User".to_string());
-        
-        let mut id_field = Field::new("id".to_string(), FieldType::Int);
-        id_field.add_attribute(FieldAttribute::new("id".to_string()));
+        let mut schema = ast::Schema::new();
+
+        let mut model = ast::Model::new("User".to_string());
+
+        let mut id_field = ast::Field::new("id".to_string(), ast::FieldType::Int);
+        id_field.add_attribute(ast::FieldAttribute::new("id".to_string()));
         model.add_field(id_field);
-        
-        let name_field = Field::new("name".to_string(), FieldType::String);
+
+        let name_field = ast::Field::new("name".to_string(), ast::FieldType::String);
         model.add_field(name_field);
-        
+
         schema.add_model(model);
-        
+
         let config = SchemaConverter::convert_to_config(schema).unwrap();
-        
+
         assert_eq!(config.models.len(), 1);
         assert_eq!(config.models[0].name, "User");
         assert_eq!(config.models[0].fields.len(), 2);

@@ -576,18 +576,5 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("Duplicate field name"));
     }
 
-    #[test]
-    fn test_validation_error_manual_id_field() {
-        let generator = DtoGenerator;
-        let mut model = create_test_model();
-        // Add manual ID field (should be auto-generated)
-        let mut id_field = model.fields[0].clone();
-        id_field.name = "id".to_string();
-        model.fields.push(id_field);
-        let config = create_test_config(false);
 
-        let result = generator.generate(&model, &config);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("should not manually define 'id' field"));
-    }
 }

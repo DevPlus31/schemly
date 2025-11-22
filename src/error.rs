@@ -6,10 +6,6 @@ pub enum GeneratorError {
     Io(#[from] std::io::Error),
     #[error("Schema parsing error: {0}")]
     ParseError(String),
-    #[error("Invalid field type: {0}")]
-    InvalidFieldType(String),
-    #[error("Invalid relationship type: {0}")]
-    InvalidRelationshipType(String),
     #[error("Model validation error: {0}")]
     ModelValidation(String),
     #[error("Template error: {0}")]
@@ -20,13 +16,6 @@ pub enum GeneratorError {
     Configuration(String),
     #[error("Invalid identifier: {0}")]
     InvalidIdentifier(String),
-    #[error("Generator error in {context}: {source}")]
-    GeneratorContext {
-        context: String,
-        source: Box<GeneratorError>,
-    },
-    #[error("Multiple errors occurred")]
-    Multiple(Vec<GeneratorError>),
 }
 
 
