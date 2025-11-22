@@ -159,9 +159,6 @@ schemly generate --only controllers,resources,factories
 # Use Domain-Driven Design structure
 schemly generate --ddd
 
-# Interactive mode (select models and components)
-schemly generate --interactive
-
 # Verbose output
 schemly generate --verbose
 ```

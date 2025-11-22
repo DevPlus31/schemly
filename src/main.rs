@@ -1,6 +1,5 @@
 mod error;
 mod generators;
-mod interactive;
 mod schema;
 mod template;
 mod types;
@@ -115,10 +114,6 @@ enum Commands {
         /// Use Domain-Driven Design folder structure
         #[arg(long)]
         ddd: bool,
-
-        /// Interactive mode for selecting models and components
-        #[arg(short, long)]
-        interactive: bool,
     },
 
     /// Watches the schema file and auto-generates on save
@@ -493,8 +488,8 @@ fn main() -> Result<()> {
         Commands::Init { output, force } => {
             handle_init(output, *force)
         }
-        Commands::Generate { output, dry_run, force, only, ddd, interactive } => {
-            handle_generate(&cli, output, *dry_run, *force, only, *ddd, *interactive)
+        Commands::Generate { output, dry_run, force, only, ddd } => {
+            handle_generate(&cli, output, *dry_run, *force, only, *ddd)
         }
         Commands::Watch { output, force, only } => {
             handle_watch(&cli, output, *force, only)
@@ -530,7 +525,6 @@ fn handle_generate(
     force: bool,
     only: &Option<Vec<String>>,
     ddd: bool,
-    interactive: bool,
 ) -> Result<()> {
     let schema_path = get_schema_path(&cli.file);
 
@@ -539,11 +533,6 @@ fn handle_generate(
     }
 
     let mut generator = LaravelGenerator::from_file(&schema_path)?;
-
-    // Handle interactive mode
-    if interactive {
-        generator.config = interactive::InteractiveMode::run(generator.config)?;
-    }
 
     // Parse --only components
     let (gen_models, gen_controllers, gen_resources, gen_factories, gen_migrations, gen_pivot, gen_dtos)
@@ -554,16 +543,14 @@ fn handle_generate(
     generator.config.force_overwrite = force;
     generator.config.use_ddd_structure = ddd;
 
-    // Apply component selection (only if not in interactive mode)
-    if !interactive {
-        generator.config.generate_models = gen_models;
-        generator.config.generate_controllers = gen_controllers;
-        generator.config.generate_resources = gen_resources;
-        generator.config.generate_factories = gen_factories;
-        generator.config.generate_migrations = gen_migrations;
-        generator.config.generate_pivot_tables = gen_pivot;
-        generator.config.generate_dto = gen_dtos;
-    }
+    // Apply component selection
+    generator.config.generate_models = gen_models;
+    generator.config.generate_controllers = gen_controllers;
+    generator.config.generate_resources = gen_resources;
+    generator.config.generate_factories = gen_factories;
+    generator.config.generate_migrations = gen_migrations;
+    generator.config.generate_pivot_tables = gen_pivot;
+    generator.config.generate_dto = gen_dtos;
 
     // Warn user about force flag
     if force {
