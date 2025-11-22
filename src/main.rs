@@ -4,7 +4,6 @@ mod interactive;
 mod schema;
 mod template;
 mod types;
-mod utils;
 mod validation;
 
 use clap::{Parser, Subcommand};

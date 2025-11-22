@@ -4,5 +4,4 @@ pub mod interactive;
 pub mod schema;
 pub mod template;
 pub mod types;
-pub mod utils;
 pub mod validation;
