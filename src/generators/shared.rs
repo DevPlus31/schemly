@@ -343,13 +343,13 @@ mod tests {
     #[test]
     fn test_field_type_helper_nullable_in_php() {
         // ID fields are never nullable in PHP constructors
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("id", true), false);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("id", false), false);
+        assert!(!FieldTypeHelper::is_nullable_in_php("id", true));
+        assert!(!FieldTypeHelper::is_nullable_in_php("id", false));
 
         // Other fields respect the nullable flag
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("name", true), true);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("name", false), false);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("email", true), true);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("email", false), false);
+        assert!(FieldTypeHelper::is_nullable_in_php("name", true));
+        assert!(!FieldTypeHelper::is_nullable_in_php("name", false));
+        assert!(FieldTypeHelper::is_nullable_in_php("email", true));
+        assert!(!FieldTypeHelper::is_nullable_in_php("email", false));
     }
 }

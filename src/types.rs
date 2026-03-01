@@ -158,17 +158,12 @@ pub struct ModelDefinition {
     pub compound_uniques: Vec<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub enum FillableGuarded {
     Fillable(Vec<String>),
     Guarded(Vec<String>),
+    #[default]
     All,
-}
-
-impl Default for FillableGuarded {
-    fn default() -> Self {
-        FillableGuarded::All
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

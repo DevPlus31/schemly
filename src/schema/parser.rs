@@ -13,35 +13,32 @@ pub fn parse_schema(input: &str) -> Result<Schema, String> {
     let mut schema = Schema::new();
 
     for pair in pairs {
-        match pair.as_rule() {
-            Rule::schema => {
-                for inner_pair in pair.into_inner() {
-                    match inner_pair.as_rule() {
-                        Rule::generator_block => {
-                            let generator = parse_generator(inner_pair)?;
-                            schema.generators.push(generator);
-                        }
-                        Rule::datasource_block => {
-                            let datasource = parse_datasource(inner_pair)?;
-                            schema.datasources.push(datasource);
-                        }
-                        Rule::config_block => {
-                            // Parse config block (we'll handle this later if needed)
-                        }
-                        Rule::model_block => {
-                            let model = parse_model(inner_pair)?;
-                            schema.add_model(model);
-                        }
-                        Rule::enum_block => {
-                            let enum_def = parse_enum(inner_pair)?;
-                            schema.add_enum(enum_def);
-                        }
-                        Rule::EOI => {}
-                        _ => {}
+        if pair.as_rule() == Rule::schema {
+            for inner_pair in pair.into_inner() {
+                match inner_pair.as_rule() {
+                    Rule::generator_block => {
+                        let generator = parse_generator(inner_pair)?;
+                        schema.generators.push(generator);
                     }
+                    Rule::datasource_block => {
+                        let datasource = parse_datasource(inner_pair)?;
+                        schema.datasources.push(datasource);
+                    }
+                    Rule::config_block => {
+                        // Parse config block (we'll handle this later if needed)
+                    }
+                    Rule::model_block => {
+                        let model = parse_model(inner_pair)?;
+                        schema.add_model(model);
+                    }
+                    Rule::enum_block => {
+                        let enum_def = parse_enum(inner_pair)?;
+                        schema.add_enum(enum_def);
+                    }
+                    Rule::EOI => {}
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
 
@@ -61,23 +58,20 @@ fn parse_model(pair: Pair<Rule>) -> Result<Model, String> {
     
     // Parse model contents (fields and attributes)
     for content_pair in inner {
-        match content_pair.as_rule() {
-            Rule::model_content => {
-                for item in content_pair.into_inner() {
-                    match item.as_rule() {
-                        Rule::field_decl => {
-                            let field = parse_field(item)?;
-                            model.add_field(field);
-                        }
-                        Rule::attr_block => {
-                            let attribute = parse_model_attribute(item)?;
-                            model.add_attribute(attribute);
-                        }
-                        _ => {}
+        if content_pair.as_rule() == Rule::model_content {
+            for item in content_pair.into_inner() {
+                match item.as_rule() {
+                    Rule::field_decl => {
+                        let field = parse_field(item)?;
+                        model.add_field(field);
                     }
+                    Rule::attr_block => {
+                        let attribute = parse_model_attribute(item)?;
+                        model.add_attribute(attribute);
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
     
@@ -144,6 +138,7 @@ fn parse_field_type(type_str: &str) -> Result<FieldType, String> {
     }
 }
 
+#[allow(clippy::collapsible_if)]
 fn parse_field_attribute(pair: Pair<Rule>) -> Result<FieldAttribute, String> {
     let mut inner = pair.into_inner();
 
@@ -158,33 +153,30 @@ fn parse_field_attribute(pair: Pair<Rule>) -> Result<FieldAttribute, String> {
     if let Some(args_pair) = inner.next() {
         if args_pair.as_rule() == Rule::args {
             for arg_pair in args_pair.into_inner() {
-                match arg_pair.as_rule() {
-                    Rule::arg => {
-                        let mut arg_inner = arg_pair.into_inner();
-                        let first = arg_inner.next().ok_or("Missing argument")?;
+                if arg_pair.as_rule() == Rule::arg {
+                    let mut arg_inner = arg_pair.into_inner();
+                    let first = arg_inner.next().ok_or("Missing argument")?;
 
-                        match first.as_rule() {
-                            Rule::named_arg => {
-                                let mut named_inner = first.into_inner();
-                                let arg_name = named_inner.next()
-                                    .ok_or("Missing named argument name")?
-                                    .as_str()
-                                    .to_string();
-                                let arg_value = parse_value(named_inner.next()
-                                    .ok_or("Missing named argument value")?)?;
-                                args.push(AttributeArg::Named {
-                                    name: arg_name,
-                                    value: arg_value,
-                                });
-                            }
-                            Rule::value => {
-                                let value = parse_value(first)?;
-                                args.push(AttributeArg::Positional(value));
-                            }
-                            _ => {}
+                    match first.as_rule() {
+                        Rule::named_arg => {
+                            let mut named_inner = first.into_inner();
+                            let arg_name = named_inner.next()
+                                .ok_or("Missing named argument name")?
+                                .as_str()
+                                .to_string();
+                            let arg_value = parse_value(named_inner.next()
+                                .ok_or("Missing named argument value")?)?;
+                            args.push(AttributeArg::Named {
+                                name: arg_name,
+                                value: arg_value,
+                            });
                         }
+                        Rule::value => {
+                            let value = parse_value(first)?;
+                            args.push(AttributeArg::Positional(value));
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
@@ -193,6 +185,7 @@ fn parse_field_attribute(pair: Pair<Rule>) -> Result<FieldAttribute, String> {
     Ok(FieldAttribute::new(name).with_args(args))
 }
 
+#[allow(clippy::collapsible_if)]
 fn parse_model_attribute(pair: Pair<Rule>) -> Result<ModelAttribute, String> {
     let mut inner = pair.into_inner();
 
@@ -207,33 +200,30 @@ fn parse_model_attribute(pair: Pair<Rule>) -> Result<ModelAttribute, String> {
     if let Some(args_pair) = inner.next() {
         if args_pair.as_rule() == Rule::args {
             for arg_pair in args_pair.into_inner() {
-                match arg_pair.as_rule() {
-                    Rule::arg => {
-                        let mut arg_inner = arg_pair.into_inner();
-                        let first = arg_inner.next().ok_or("Missing argument")?;
+                if arg_pair.as_rule() == Rule::arg {
+                    let mut arg_inner = arg_pair.into_inner();
+                    let first = arg_inner.next().ok_or("Missing argument")?;
 
-                        match first.as_rule() {
-                            Rule::named_arg => {
-                                let mut named_inner = first.into_inner();
-                                let arg_name = named_inner.next()
-                                    .ok_or("Missing named argument name")?
-                                    .as_str()
-                                    .to_string();
-                                let arg_value = parse_value(named_inner.next()
-                                    .ok_or("Missing named argument value")?)?;
-                                args.push(AttributeArg::Named {
-                                    name: arg_name,
-                                    value: arg_value,
-                                });
-                            }
-                            Rule::value => {
-                                let value = parse_value(first)?;
-                                args.push(AttributeArg::Positional(value));
-                            }
-                            _ => {}
+                    match first.as_rule() {
+                        Rule::named_arg => {
+                            let mut named_inner = first.into_inner();
+                            let arg_name = named_inner.next()
+                                .ok_or("Missing named argument name")?
+                                .as_str()
+                                .to_string();
+                            let arg_value = parse_value(named_inner.next()
+                                .ok_or("Missing named argument value")?)?;
+                            args.push(AttributeArg::Named {
+                                name: arg_name,
+                                value: arg_value,
+                            });
                         }
+                        Rule::value => {
+                            let value = parse_value(first)?;
+                            args.push(AttributeArg::Positional(value));
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }

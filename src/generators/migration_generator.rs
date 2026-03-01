@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 use crate::error::Result;
 use crate::generators::Generator;
 use crate::types::{Config, ModelDefinition, Relationship};
@@ -123,9 +124,10 @@ impl MigrationGenerator {
     }
 
     fn pluralize(&self, word: &str) -> String {
-        if word.ends_with("y") {
-            format!("{}ies", &word[..word.len()-1])
-        } else if word.ends_with("s") {
+        // Very basic pluralization, good enough for most table names
+        if let Some(stripped) = word.strip_suffix('y') {
+            format!("{}ies", stripped)
+        } else if word.ends_with('s') {
             format!("{}es", word)
         } else {
             format!("{}s", word)

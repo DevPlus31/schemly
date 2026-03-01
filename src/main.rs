@@ -107,7 +107,7 @@ enum Commands {
         #[arg(long)]
         force: bool,
 
-        /// Generate only specific components (comma-separated: models,migrations,controllers,resources,factories,dtos)
+        /// Generate only specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests)
         #[arg(long, value_delimiter = ',')]
         only: Option<Vec<String>>,
 
@@ -147,9 +147,9 @@ impl LaravelGenerator {
     pub fn from_file(file_path: &str) -> Result<Self> {
         let schema_content = fs::read_to_string(file_path)?;
         let schema = schema::parse_schema(&schema_content)
-            .map_err(|e| error::GeneratorError::ParseError(e))?;
+            .map_err(error::GeneratorError::ParseError)?;
         let config = schema::SchemaConverter::convert_to_config(schema)
-            .map_err(|e| error::GeneratorError::ParseError(e))?;
+            .map_err(error::GeneratorError::ParseError)?;
         config.validate()?;
         Ok(LaravelGenerator { config })
     }
@@ -175,33 +175,39 @@ impl LaravelGenerator {
             Validator::validate_model(model)?;
 
             if self.config.generate_models {
-                let result = self.generate_model(model)?;
+                let result = self.generate_component(&model_generator::ModelGenerator, model, &format!("Generated model: {}", model.name))?;
                 self.update_stats(&mut stats, result);
             }
 
             if self.config.generate_migrations {
-                let result = self.generate_migration(model)?;
+                let result = self.generate_component(&migration_generator::MigrationGenerator, model, &format!("Generated migration for table: {}", model.table))?;
                 self.update_stats(&mut stats, result);
             }
 
             if self.config.generate_controllers {
-                let result = self.generate_controller(model)?;
+                let result = self.generate_component(&controller_generator::ControllerGenerator, model, &format!("Generated controller: {}Controller", model.name))?;
                 self.update_stats(&mut stats, result);
             }
 
             if self.config.generate_resources {
-                let result = self.generate_resource(model)?;
+                let result = self.generate_component(&resource_generator::ResourceGenerator, model, &format!("Generated resource: {}Resource", model.name))?;
                 self.update_stats(&mut stats, result);
             }
 
             if self.config.generate_factories {
-                let result = self.generate_factory(model)?;
+                let result = self.generate_component(&factory_generator::FactoryGenerator, model, &format!("Generated factory: {}Factory", model.name))?;
                 self.update_stats(&mut stats, result);
             }
 
             if self.config.generate_dto {
-                let result = self.generate_dto(model)?;
+                let result = self.generate_component(&dto_generator::DtoGenerator, model, &format!("Generated DTO: {}DTO", model.name))?;
                 self.update_stats(&mut stats, result);
+            }
+
+            if self.config.generate_requests {
+                let (store_res, update_res) = self.generate_request(model)?;
+                self.update_stats(&mut stats, store_res);
+                self.update_stats(&mut stats, update_res);
             }
         }
 
@@ -238,14 +244,18 @@ impl LaravelGenerator {
         Ok(result)
     }
 
-    fn generate_model(&self, model: &types::ModelDefinition) -> Result<WriteResult> {
-        let generator = model_generator::ModelGenerator;
+    fn generate_component<G: generators::Generator>(
+        &self,
+        generator: &G,
+        model: &types::ModelDefinition,
+        message: &str,
+    ) -> Result<WriteResult> {
         let content = generator.generate(model, &self.config)?;
         let file_path = generator.get_file_path(model, &self.config);
 
         let result = safe_write_file(&file_path, &content, self.config.force_overwrite)?;
         match &result {
-            WriteResult::Written => println!("Generated model: {}", model.name),
+            WriteResult::Written => println!("{}", message),
             WriteResult::Skipped => {
                 println!("Warning: File already exists, skipping: {}", file_path)
             }
@@ -254,84 +264,34 @@ impl LaravelGenerator {
         Ok(result)
     }
 
-    fn generate_migration(&self, model: &types::ModelDefinition) -> Result<WriteResult> {
-        let generator = migration_generator::MigrationGenerator;
-        let content = generator.generate(model, &self.config)?;
-        let file_path = generator.get_file_path(model, &self.config);
+    fn generate_request(&self, model: &types::ModelDefinition) -> Result<(WriteResult, WriteResult)> {
+        let generator = request_generator::RequestGenerator;
 
-        let result = safe_write_file(&file_path, &content, self.config.force_overwrite)?;
-        match &result {
-            WriteResult::Written => println!("Generated migration for table: {}", model.table),
-            WriteResult::Skipped => {
-                println!("Warning: File already exists, skipping: {}", file_path)
-            }
-            WriteResult::Error(e) => println!("Error writing {}: {}", file_path, e),
+        // Store
+        let store_content = generator.generate_action(model, &self.config, "store")
+            .map_err(|e| error::GeneratorError::Template(e.to_string()))?;
+        let store_file_path = generator.get_file_path_action(model, &self.config, "store");
+        let store_result = safe_write_file(&store_file_path, &store_content, self.config.force_overwrite)?;
+
+        match &store_result {
+            WriteResult::Written => println!("Generated request: Store{}Request", model.name),
+            WriteResult::Skipped => println!("Warning: File already exists, skipping: {}", store_file_path),
+            WriteResult::Error(e) => println!("Error writing {}: {}", store_file_path, e),
         }
-        Ok(result)
-    }
 
-    fn generate_controller(&self, model: &types::ModelDefinition) -> Result<WriteResult> {
-        let generator = controller_generator::ControllerGenerator;
-        let content = generator.generate(model, &self.config)?;
-        let file_path = generator.get_file_path(model, &self.config);
+        // Update
+        let update_content = generator.generate_action(model, &self.config, "update")
+            .map_err(|e| error::GeneratorError::Template(e.to_string()))?;
+        let update_file_path = generator.get_file_path_action(model, &self.config, "update");
+        let update_result = safe_write_file(&update_file_path, &update_content, self.config.force_overwrite)?;
 
-        let result = safe_write_file(&file_path, &content, self.config.force_overwrite)?;
-        match &result {
-            WriteResult::Written => println!("Generated controller: {}Controller", model.name),
-            WriteResult::Skipped => {
-                println!("Warning: File already exists, skipping: {}", file_path)
-            }
-            WriteResult::Error(e) => println!("Error writing {}: {}", file_path, e),
+        match &update_result {
+            WriteResult::Written => println!("Generated request: Update{}Request", model.name),
+            WriteResult::Skipped => println!("Warning: File already exists, skipping: {}", update_file_path),
+            WriteResult::Error(e) => println!("Error writing {}: {}", update_file_path, e),
         }
-        Ok(result)
-    }
 
-    fn generate_resource(&self, model: &types::ModelDefinition) -> Result<WriteResult> {
-        let generator = resource_generator::ResourceGenerator;
-        let content = generator.generate(model, &self.config)?;
-        let file_path = generator.get_file_path(model, &self.config);
-
-        let result = safe_write_file(&file_path, &content, self.config.force_overwrite)?;
-        match &result {
-            WriteResult::Written => println!("Generated resource: {}Resource", model.name),
-            WriteResult::Skipped => {
-                println!("Warning: File already exists, skipping: {}", file_path)
-            }
-            WriteResult::Error(e) => println!("Error writing {}: {}", file_path, e),
-        }
-        Ok(result)
-    }
-
-    fn generate_factory(&self, model: &types::ModelDefinition) -> Result<WriteResult> {
-        let generator = factory_generator::FactoryGenerator;
-        let content = generator.generate(model, &self.config)?;
-        let file_path = generator.get_file_path(model, &self.config);
-
-        let result = safe_write_file(&file_path, &content, self.config.force_overwrite)?;
-        match &result {
-            WriteResult::Written => println!("Generated factory: {}Factory", model.name),
-            WriteResult::Skipped => {
-                println!("Warning: File already exists, skipping: {}", file_path)
-            }
-            WriteResult::Error(e) => println!("Error writing {}: {}", file_path, e),
-        }
-        Ok(result)
-    }
-
-    fn generate_dto(&self, model: &types::ModelDefinition) -> Result<WriteResult> {
-        let generator = dto_generator::DtoGenerator;
-        let content = generator.generate(model, &self.config)?;
-        let file_path = generator.get_file_path(model, &self.config);
-
-        let result = safe_write_file(&file_path, &content, self.config.force_overwrite)?;
-        match &result {
-            WriteResult::Written => println!("Generated DTO: {}DTO", model.name),
-            WriteResult::Skipped => {
-                println!("Warning: File already exists, skipping: {}", file_path)
-            }
-            WriteResult::Error(e) => println!("Error writing {}: {}", file_path, e),
-        }
-        Ok(result)
+        Ok((store_result, update_result))
     }
 
     fn update_stats(&self, stats: &mut GenerationStats, result: WriteResult) {
@@ -379,7 +339,7 @@ impl Config {
 }
 
 // Helper functions
-fn parse_only_components(only: &Option<Vec<String>>) -> (bool, bool, bool, bool, bool, bool, bool) {
+fn parse_only_components(only: &Option<Vec<String>>) -> (bool, bool, bool, bool, bool, bool, bool, bool) {
     if let Some(components) = only {
         let mut models = false;
         let mut controllers = false;
@@ -388,6 +348,7 @@ fn parse_only_components(only: &Option<Vec<String>>) -> (bool, bool, bool, bool,
         let mut migrations = false;
         let mut pivot_tables = false;
         let mut dtos = false;
+        let mut requests = false;
 
         for component in components {
             match component.to_lowercase().as_str() {
@@ -398,17 +359,19 @@ fn parse_only_components(only: &Option<Vec<String>>) -> (bool, bool, bool, bool,
                 "migrations" | "migration" => migrations = true,
                 "pivot" | "pivots" | "pivot_tables" => pivot_tables = true,
                 "dtos" | "dto" => dtos = true,
+                "requests" | "request" => requests = true,
                 _ => eprintln!("⚠️  Warning: Unknown component '{}'", component),
             }
         }
 
-        (models, controllers, resources, factories, migrations, pivot_tables, dtos)
+        (models, controllers, resources, factories, migrations, pivot_tables, dtos, requests)
     } else {
         // Default: generate all
-        (true, true, true, true, true, true, true)
+        (true, true, true, true, true, true, true, true)
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn get_enabled_components_list(
     models: bool,
     controllers: bool,
@@ -417,6 +380,7 @@ fn get_enabled_components_list(
     migrations: bool,
     pivot_tables: bool,
     dtos: bool,
+    requests: bool,
 ) -> Vec<String> {
     let mut enabled = Vec::new();
     if models { enabled.push("models".to_string()); }
@@ -426,6 +390,7 @@ fn get_enabled_components_list(
     if migrations { enabled.push("migrations".to_string()); }
     if pivot_tables { enabled.push("pivot tables".to_string()); }
     if dtos { enabled.push("DTOs".to_string()); }
+    if requests { enabled.push("requests".to_string()); }
     enabled
 }
 
@@ -535,7 +500,7 @@ fn handle_generate(
     let mut generator = LaravelGenerator::from_file(&schema_path)?;
 
     // Parse --only components
-    let (gen_models, gen_controllers, gen_resources, gen_factories, gen_migrations, gen_pivot, gen_dtos)
+    let (gen_models, gen_controllers, gen_resources, gen_factories, gen_migrations, gen_pivot, gen_dtos, gen_requests)
         = parse_only_components(only);
 
     // Override config with CLI options
@@ -551,6 +516,7 @@ fn handle_generate(
     generator.config.generate_migrations = gen_migrations;
     generator.config.generate_pivot_tables = gen_pivot;
     generator.config.generate_dto = gen_dtos;
+    generator.config.generate_requests = gen_requests;
 
     // Warn user about force flag
     if force {
@@ -566,6 +532,7 @@ fn handle_generate(
         generator.config.generate_migrations,
         generator.config.generate_pivot_tables,
         generator.config.generate_dto,
+        generator.config.generate_requests,
     );
 
     if dry_run {

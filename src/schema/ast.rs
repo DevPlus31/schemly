@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
@@ -100,6 +102,12 @@ pub struct Enum {
 pub struct EnumValue {
     pub name: String,
     pub attributes: Vec<FieldAttribute>,
+}
+
+impl Default for Schema {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Schema {
@@ -350,9 +358,8 @@ impl ModelAttribute {
 // Utility function to convert PascalCase to snake_case
 fn to_snake_case(s: &str) -> String {
     let mut result = String::new();
-    let mut chars = s.chars().peekable();
     
-    while let Some(ch) = chars.next() {
+    for ch in s.chars() {
         if ch.is_uppercase() && !result.is_empty() {
             result.push('_');
         }

@@ -117,12 +117,10 @@ impl SchemaConverter {
         // Check for @db attribute with length
         if let Some(db_type) = ast_field.get_db_type() {
             // Parse VarChar(255) -> 255
-            if let Some(start) = db_type.find('(') {
-                if let Some(end) = db_type.find(')') {
-                    let length_str = &db_type[start+1..end];
-                    if let Ok(length) = length_str.parse::<u32>() {
-                        return Some(length);
-                    }
+            if let (Some(start), Some(end)) = (db_type.find('('), db_type.find(')')) {
+                let length_str = &db_type[start+1..end];
+                if let Ok(length) = length_str.parse::<u32>() {
+                    return Some(length);
                 }
             }
         }

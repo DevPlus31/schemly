@@ -1,5 +1,5 @@
 use crate::generators::Generator;
-use crate::generators::shared::{PathResolver, NamespaceResolver};
+use crate::generators::shared::NamespaceResolver;
 use crate::types::{Config, ModelDefinition};
 use crate::validation::Validator;
 use crate::template::{TemplateContext, TemplateRenderer};

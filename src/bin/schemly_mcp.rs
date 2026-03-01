@@ -330,81 +330,39 @@ fn generate_all(config: &Config) -> Result<String, String> {
     let mut skipped = 0;
     let mut errors = 0;
 
-    for model in &config.models {
-        if config.generate_models {
-            match run_generator(&model_generator::ModelGenerator, model, config, "model") {
-                Ok(msg) => { output.push_str(&msg); written += 1; }
-                Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_migrations {
-            match run_generator(&migration_generator::MigrationGenerator, model, config, "migration") {
-                Ok(msg) => { output.push_str(&msg); written += 1; }
-                Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_controllers {
-            match run_generator(&controller_generator::ControllerGenerator, model, config, "controller") {
-                Ok(msg) => { output.push_str(&msg); written += 1; }
-                Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_resources {
-            match run_generator(&resource_generator::ResourceGenerator, model, config, "resource") {
-                Ok(msg) => { output.push_str(&msg); written += 1; }
-                Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_factories {
-            match run_generator(&factory_generator::FactoryGenerator, model, config, "factory") {
-                Ok(msg) => { output.push_str(&msg); written += 1; }
-                Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_dto {
-            match run_generator(&dto_generator::DtoGenerator, model, config, "DTO") {
-                Ok(msg) => { output.push_str(&msg); written += 1; }
-                Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_requests {
-            // Generate Store Request
-            let store_content = match request_generator::RequestGenerator.generate_action(model, config, "store") {
-                Ok(c) => c,
-                Err(e) => { output.push_str(&format!("❌ Failed to generate Store Request for {}: {}\n", model.name, e)); errors += 1; "".to_string() }
-            };
-            if !store_content.is_empty() {
-                let store_path = request_generator::RequestGenerator.get_file_path_action(model, config, "store");
-                match safe_write_file(&store_path, &store_content, config.force_overwrite) {
+    macro_rules! process {
+        ($cond:expr, $gen:expr, $name:expr, $model:expr) => {
+            if $cond {
+                match run_generator($gen, $model, config, $name) {
                     Ok(msg) => { output.push_str(&msg); written += 1; }
                     Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
                     Err(msg) => { output.push_str(&msg); errors += 1; }
                 }
             }
-            
-            // Generate Update Request
-            let update_content = match request_generator::RequestGenerator.generate_action(model, config, "update") {
-                Ok(c) => c,
-                Err(e) => { output.push_str(&format!("❌ Failed to generate Update Request for {}: {}\n", model.name, e)); errors += 1; "".to_string() }
-            };
-            if !update_content.is_empty() {
-                let update_path = request_generator::RequestGenerator.get_file_path_action(model, config, "update");
-                match safe_write_file(&update_path, &update_content, config.force_overwrite) {
-                    Ok(msg) => { output.push_str(&msg); written += 1; }
-                    Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
-                    Err(msg) => { output.push_str(&msg); errors += 1; }
+        }
+    }
+
+    for model in &config.models {
+        process!(config.generate_models, &model_generator::ModelGenerator, "model", model);
+        process!(config.generate_migrations, &migration_generator::MigrationGenerator, "migration", model);
+        process!(config.generate_controllers, &controller_generator::ControllerGenerator, "controller", model);
+        process!(config.generate_resources, &resource_generator::ResourceGenerator, "resource", model);
+        process!(config.generate_factories, &factory_generator::FactoryGenerator, "factory", model);
+        process!(config.generate_dto, &dto_generator::DtoGenerator, "DTO", model);
+
+        if config.generate_requests {
+            for action in ["store", "update"] {
+                let action_content = match request_generator::RequestGenerator.generate_action(model, config, action) {
+                    Ok(c) => c,
+                    Err(e) => { output.push_str(&format!("❌ Failed to generate {} Request for {}: {}\n", action, model.name, e)); errors += 1; "".to_string() }
+                };
+                if !action_content.is_empty() {
+                    let action_path = request_generator::RequestGenerator.get_file_path_action(model, config, action);
+                    match safe_write_file(&action_path, &action_content, config.force_overwrite) {
+                        Ok(msg) => { output.push_str(&msg); written += 1; }
+                        Err(msg) if msg.contains("already exists") => { output.push_str(&msg); skipped += 1; }
+                        Err(msg) => { output.push_str(&msg); errors += 1; }
+                    }
                 }
             }
         }
@@ -426,97 +384,43 @@ fn check_drifts_all(config: &Config) -> Result<String, String> {
     let mut missing = 0;
     let mut errors = 0;
 
+    macro_rules! check {
+        ($cond:expr, $gen:expr, $name:expr, $model:expr) => {
+            if $cond {
+                match run_drift_check($gen, $model, config, $name) {
+                    Ok(msg) => { 
+                        output.push_str(&msg); 
+                        if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
+                    }
+                    Err(msg) => { output.push_str(&msg); errors += 1; }
+                }
+            }
+        }
+    }
+
     for model in &config.models {
-        if config.generate_models {
-            match run_drift_check(&model_generator::ModelGenerator, model, config, "model") {
-                Ok(msg) => { 
-                    output.push_str(&msg); 
-                    if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
-                }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_migrations {
-            match run_drift_check(&migration_generator::MigrationGenerator, model, config, "migration") {
-                Ok(msg) => { 
-                    output.push_str(&msg); 
-                    if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
-                }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_controllers {
-            match run_drift_check(&controller_generator::ControllerGenerator, model, config, "controller") {
-                Ok(msg) => { 
-                    output.push_str(&msg); 
-                    if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
-                }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_resources {
-            match run_drift_check(&resource_generator::ResourceGenerator, model, config, "resource") {
-                Ok(msg) => { 
-                    output.push_str(&msg); 
-                    if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
-                }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_factories {
-            match run_drift_check(&factory_generator::FactoryGenerator, model, config, "factory") {
-                Ok(msg) => { 
-                    output.push_str(&msg); 
-                    if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
-                }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
-
-        if config.generate_dto {
-            match run_drift_check(&dto_generator::DtoGenerator, model, config, "DTO") {
-                Ok(msg) => { 
-                    output.push_str(&msg); 
-                    if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
-                }
-                Err(msg) => { output.push_str(&msg); errors += 1; }
-            }
-        }
+        check!(config.generate_models, &model_generator::ModelGenerator, "model", model);
+        check!(config.generate_migrations, &migration_generator::MigrationGenerator, "migration", model);
+        check!(config.generate_controllers, &controller_generator::ControllerGenerator, "controller", model);
+        check!(config.generate_resources, &resource_generator::ResourceGenerator, "resource", model);
+        check!(config.generate_factories, &factory_generator::FactoryGenerator, "factory", model);
+        check!(config.generate_dto, &dto_generator::DtoGenerator, "DTO", model);
 
         if config.generate_requests {
-            // Check Store Request
-            let store_content = match request_generator::RequestGenerator.generate_action(model, config, "store") {
-                Ok(c) => c,
-                Err(e) => { output.push_str(&format!("❌ Failed to generate Store Request for {}: {}\n", model.name, e)); errors += 1; "".to_string() }
-            };
-            if !store_content.is_empty() {
-                let store_path = request_generator::RequestGenerator.get_file_path_action(model, config, "store");
-                match check_file_drift(&store_path, &store_content) {
-                    Ok(msg) => { 
-                        output.push_str(&msg); 
-                        if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
+            for action in ["store", "update"] {
+                let action_content = match request_generator::RequestGenerator.generate_action(model, config, action) {
+                    Ok(c) => c,
+                    Err(e) => { output.push_str(&format!("❌ Failed to generate {} Request for {}: {}\n", action, model.name, e)); errors += 1; "".to_string() }
+                };
+                if !action_content.is_empty() {
+                    let action_path = request_generator::RequestGenerator.get_file_path_action(model, config, action);
+                    match check_file_drift(&action_path, &action_content) {
+                        Ok(msg) => { 
+                            output.push_str(&msg); 
+                            if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
+                        }
+                        Err(msg) => { output.push_str(&msg); errors += 1; }
                     }
-                    Err(msg) => { output.push_str(&msg); errors += 1; }
-                }
-            }
-            
-            // Check Update Request
-            let update_content = match request_generator::RequestGenerator.generate_action(model, config, "update") {
-                Ok(c) => c,
-                Err(e) => { output.push_str(&format!("❌ Failed to generate Update Request for {}: {}\n", model.name, e)); errors += 1; "".to_string() }
-            };
-            if !update_content.is_empty() {
-                let update_path = request_generator::RequestGenerator.get_file_path_action(model, config, "update");
-                match check_file_drift(&update_path, &update_content) {
-                    Ok(msg) => { 
-                        output.push_str(&msg); 
-                        if msg.contains("INTACT") { intact += 1; } else if msg.contains("DRIFTED") { drifted += 1; } else { missing += 1; }
-                    }
-                    Err(msg) => { output.push_str(&msg); errors += 1; }
                 }
             }
         }
