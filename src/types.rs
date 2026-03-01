@@ -152,6 +152,10 @@ pub struct ModelDefinition {
     pub traits: Vec<String>,
     #[serde(default)]
     pub fillable_guarded: FillableGuarded,
+    #[serde(default)]
+    pub compound_indexes: Vec<Vec<String>>,
+    #[serde(default)]
+    pub compound_uniques: Vec<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -250,6 +254,8 @@ pub struct Config {
     #[serde(default)]
     pub generate_validation_rules: bool,
     #[serde(default)]
+    pub generate_requests: bool,
+    #[serde(default)]
     pub generate_dto: bool,
     #[serde(default)]
     pub use_ddd_structure: bool,
@@ -272,6 +278,7 @@ impl Default for Config {
             generate_migrations: true,
             generate_pivot_tables: true,
             generate_validation_rules: true,
+            generate_requests: false,
             generate_dto: false,
             use_ddd_structure: false,
             database_engine: "mysql".to_string(),

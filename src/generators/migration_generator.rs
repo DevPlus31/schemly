@@ -43,6 +43,24 @@ impl Generator for MigrationGenerator {
             "".to_string()
         };
 
+        // Generate compound indexes and uniques
+        let mut compound_indexes = String::new();
+        for index_fields in &model.compound_indexes {
+            let fields_str = index_fields.iter()
+                .map(|f| format!("'{}'", f))
+                .collect::<Vec<_>>()
+                .join(", ");
+            compound_indexes.push_str(&format!("$table->index([{}]);\n            ", fields_str));
+        }
+        
+        for unique_fields in &model.compound_uniques {
+            let fields_str = unique_fields.iter()
+                .map(|f| format!("'{}'", f))
+                .collect::<Vec<_>>()
+                .join(", ");
+            compound_indexes.push_str(&format!("$table->unique([{}]);\n            ", fields_str));
+        }
+
         // Generate foreign key constraints
         let mut foreign_keys = String::new();
         for relationship in &model.relationships {
@@ -67,6 +85,7 @@ impl Generator for MigrationGenerator {
             .replace("{{fields}}", &fields)
             .replace("{{timestamps}}", &timestamps)
             .replace("{{soft_deletes}}", &soft_deletes)
+            .replace("{{compound_indexes}}", &compound_indexes)
             .replace("{{foreign_keys}}", &foreign_keys);
 
         Ok(content)

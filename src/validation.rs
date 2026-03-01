@@ -224,6 +224,8 @@ mod tests {
             validation_rules: vec![],
             traits: vec![],
             fillable_guarded: FillableGuarded::All,
+            compound_indexes: vec![],
+            compound_uniques: vec![],
         }
     }
 

@@ -29,6 +29,8 @@ impl SchemaConverter {
             fillable_guarded: Self::convert_fillable(&ast_model),
             traits: ast_model.get_traits(),
             validation_rules: Vec::new(),
+            compound_indexes: ast_model.get_indexes(),
+            compound_uniques: ast_model.get_compound_uniques(),
         };
         
         // Convert fields

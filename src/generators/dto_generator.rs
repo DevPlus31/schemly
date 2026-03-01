@@ -317,6 +317,8 @@ mod tests {
             validation_rules: vec![],
             traits: vec![],
             fillable_guarded: FillableGuarded::All,
+            compound_indexes: vec![],
+            compound_uniques: vec![],
         }
     }
 
@@ -332,6 +334,7 @@ mod tests {
             generate_migrations: true,
             generate_pivot_tables: true,
             generate_validation_rules: true,
+            generate_requests: true,
             generate_dto: true,
             use_ddd_structure: use_ddd,
             database_engine: "mysql".to_string(),

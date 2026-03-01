@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Schema {
     pub generators: Vec<Generator>,
     pub datasources: Vec<Datasource>,
@@ -8,26 +9,26 @@ pub struct Schema {
     pub enums: Vec<Enum>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Generator {
     pub name: String,
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Datasource {
     pub name: String,
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Model {
     pub name: String,
     pub fields: Vec<Field>,
     pub attributes: Vec<ModelAttribute>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Field {
     pub name: String,
     pub field_type: FieldType,
@@ -36,7 +37,7 @@ pub struct Field {
     pub attributes: Vec<FieldAttribute>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FieldType {
     // Scalar types
     String,
@@ -57,25 +58,27 @@ pub enum FieldType {
     Unsupported(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FieldAttribute {
     pub name: String,
     pub args: Vec<AttributeArg>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelAttribute {
     pub name: String,
     pub args: Vec<AttributeArg>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum AttributeArg {
     Named { name: String, value: Value },
     Positional(Value),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Value {
     String(String),
     Integer(i64),
@@ -86,14 +89,14 @@ pub enum Value {
     FieldReference(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Enum {
     pub name: String,
     pub values: Vec<EnumValue>,
     pub attributes: Vec<ModelAttribute>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnumValue {
     pub name: String,
     pub attributes: Vec<FieldAttribute>,
@@ -184,6 +187,46 @@ impl Model {
             }
         }
         Vec::new()
+    }
+
+    /// Extract fields from the @@index block attributes: e.g., @@index([field1, field2])
+    pub fn get_indexes(&self) -> Vec<Vec<String>> {
+        self.attributes.iter()
+            .filter(|a| a.name == "index")
+            .filter_map(|attr| {
+                if let Some(AttributeArg::Positional(Value::Array(fields))) = attr.args.first() {
+                    let extracted: Vec<String> = fields.iter().filter_map(|v| match v {
+                        Value::String(s) => Some(s.clone()),
+                        Value::FieldReference(s) => Some(s.clone()),
+                        _ => None,
+                    }).collect();
+                    if !extracted.is_empty() {
+                        return Some(extracted);
+                    }
+                }
+                None
+            })
+            .collect()
+    }
+
+    /// Extract fields from the @@unique block attributes: e.g., @@unique([field1, field2])
+    pub fn get_compound_uniques(&self) -> Vec<Vec<String>> {
+        self.attributes.iter()
+            .filter(|a| a.name == "unique")
+            .filter_map(|attr| {
+                if let Some(AttributeArg::Positional(Value::Array(fields))) = attr.args.first() {
+                    let extracted: Vec<String> = fields.iter().filter_map(|v| match v {
+                        Value::String(s) => Some(s.clone()),
+                        Value::FieldReference(s) => Some(s.clone()),
+                        _ => None,
+                    }).collect();
+                    if !extracted.is_empty() {
+                        return Some(extracted);
+                    }
+                }
+                None
+            })
+            .collect()
     }
 }
 
