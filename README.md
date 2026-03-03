@@ -23,7 +23,7 @@ A powerful Laravel code generator written in Rust that creates models, controlle
 ### macOS / Linux (Homebrew)
 
 ```bash
-brew tap DevPlus31/tap
+brew tap DevPlus31/schemly
 brew install schemly
 ```
 

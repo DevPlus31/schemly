@@ -105,6 +105,6 @@ jobs:
         uses: dawidd6/action-homebrew-bump-formula@v3
         with:
           token: ${{ secrets.HOMEBREW_TOKEN }}
-          tap: DevPlus31/homebrew-tap
+          tap: DevPlus31/homebrew-schemly
           formula: schemly
           force: false
