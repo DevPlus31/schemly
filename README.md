@@ -20,6 +20,19 @@ A powerful Laravel code generator written in Rust that creates models, controlle
 
 ## Installation
 
+### macOS / Linux (Homebrew)
+
+```bash
+brew tap DevPlus31/tap
+brew install schemly
+```
+
+### Windows (Winget)
+
+```bash
+winget install DevPlus31.Schemly
+```
+
 ### From Source
 
 ```bash
