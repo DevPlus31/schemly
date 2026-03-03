@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use {{namespace}}\{{model_name}};
 use Illuminate\Http\Request;
 use App\Http\Resources\{{model_name}}Resource;
+{% if use_requests %}use {{request_namespace}}\Store{{model_name}}Request;
+use {{request_namespace}}\Update{{model_name}}Request;{% endif %}
 
 class {{model_name}}Controller extends Controller
 {
@@ -20,11 +22,11 @@ class {{model_name}}Controller extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store({% if use_requests %}Store{{model_name}}Request{% else %}Request{% endif %} $request)
     {
-        $validated = $request->validate([
+{% if use_requests %}        $validated = $request->validated();{% else %}        $validated = $request->validate([
             {{validation_rules}}
-        ]);
+        ]);{% endif %}
 
         ${{model_var_name}} = {{model_name}}::create($validated);
         return new {{model_name}}Resource(${{model_var_name}});
@@ -41,11 +43,11 @@ class {{model_name}}Controller extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, {{model_name}} ${{model_var_name}})
+    public function update({% if use_requests %}Update{{model_name}}Request{% else %}Request{% endif %} $request, {{model_name}} ${{model_var_name}})
     {
-        $validated = $request->validate([
+{% if use_requests %}        $validated = $request->validated();{% else %}        $validated = $request->validate([
             {{validation_rules}}
-        ]);
+        ]);{% endif %}
 
         ${{model_var_name}}->update($validated);
         return new {{model_name}}Resource(${{model_var_name}});

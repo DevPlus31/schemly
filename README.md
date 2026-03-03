@@ -1,24 +1,22 @@
 # Schemly
 
-**Version 0.8.0**
+**Version 2.0.0**
 
-A powerful Laravel code generator written in Rust that creates models, controllers, resources, factories, migrations, and pivot tables from YAML configuration files.
+A powerful Laravel code generator written in Rust that creates models, controllers, resources, factories, migrations, and pivot tables from Prisma-like schema files.
 
 🌐 **Website**: [https://schemly.dev/](https://schemly.dev/)
 
 ## Features
 
 - 🚀 **Fast & Reliable** - Built with Rust for maximum performance
-- 📝 **YAML Configuration** - Define your models in simple, readable YAML
+- 📝 **Prisma-like Syntax** - Define your models with modern, industry-standard syntax
 - 🔧 **Complete Laravel Support** - Generates all Laravel components
-- 🛡️ **Safe by Default** - Won't overwrite existing files unless forced
-- 🎯 **Selective Generation** - Choose exactly which components to generate
-- 📊 **Detailed Statistics** - Clear summary of generated, skipped, and failed files
 - 🔗 **Relationship Support** - Full support for all Laravel relationship types
 - 🏗️ **Pivot Tables** - Automatic pivot table generation for many-to-many relationships
-- 📚 **Rich Examples** - Complete examples for different use cases (e-commerce, blog, linktree)
 - 🤖 **AI-Friendly** - Comprehensive documentation designed for AI code generation
+- 🔌 **MCP Server** - Built-in Model Context Protocol server for Claude, Cursor, and Windsurf
 - 🏛️ **DDD Support** - Optional Domain-Driven Design folder structure
+
 
 ## Installation
 
@@ -43,491 +41,375 @@ cp target/release/schemly ~/.local/bin/
 
 ## Quick Start
 
-1. **Create a YAML configuration file** (e.g., `models.yml`):
-
-```yaml
-models:
-  - name: User
-    table: users
-    timestamps: true
-    fields:
-      - name: name
-        type: string
-        length: 255
-        nullable: false
-      - name: email
-        type: string
-        length: 255
-        nullable: false
-        unique: true
-    relationships:
-      - type: hasMany
-        model: Post
-        foreignKey: user_id
-
-  - name: Post
-    table: posts
-    timestamps: true
-    fields:
-      - name: user_id
-        type: bigInteger
-        nullable: false
-      - name: title
-        type: string
-        length: 255
-        nullable: false
-      - name: content
-        type: text
-        nullable: false
-    relationships:
-      - type: belongsTo
-        model: User
-        foreignKey: user_id
-```
-
-2. **Generate Laravel files**:
+### 1. Initialize a new schema file
 
 ```bash
-# Generate all components in current Laravel project
-schemly --config models.yml
+schemly init
+```
+
+This creates a `schema.schemly` file with example models.
+
+### 2. Define your models
+
+Edit `schema.schemly` with Prisma-like syntax:
+
+```prisma
+generator laravel {
+  provider = "schemly"
+  output   = "./app"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  posts     Post[]
+
+  @@map("users")
+  @@traits(["HasFactory", "Notifiable"])
+  @@fillable(["name", "email"])
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(255)
+  content   String   @db.LongText
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("posts")
+  @@traits(["HasFactory"])
+  @@fillable(["title", "content", "user_id"])
+}
+```
+
+### 3. Generate Laravel files
+
+```bash
+# Generate all components
+schemly generate
+
+# Preview what would be generated (dry run)
+schemly generate --dry-run
 
 # Generate in specific Laravel project
-schemly --config models.yml --output /path/to/laravel-project
+schemly generate --output /path/to/laravel-project
 
-# Generate only models and migrations
-schemly --config models.yml --only-models --only-migrations
+# Generate only specific components
+schemly generate --only models,migrations
+
+# Generate everything EXCEPT specific components
+schemly generate --exclude controllers,dtos
+
+# Use Domain-Driven Design structure
+schemly generate --ddd
+
+# Set up AI context rules (.cursorrules, etc.)
+schemly init-rules
+```
+
+## AI Integration (MCP Server)
+
+Schemly includes a built-in Model Context Protocol (MCP) server that allows AI assistants like Claude, Cursor, and Windsurf to automatically read your schema and generate code.
+
+### MCP Tools Available
+- `init_schema` - Creates a new schema file
+- `generate` - Generates Laravel code from a schema string
+- `doctor` - Checks project compatibility
+- `analyze_schema` - Returns the schema's AST for the AI to understand your database
+- `check_drifts` - Checks if generated files have been manually modified
+
+### Setting up with Cursor/Windsurf
+Add the following to your MCP settings or run it directly:
+
+```json
+{
+  "mcpServers": {
+    "schemly": {
+      "command": "schemly_mcp"
+    }
+  }
+}
+```
+
+## CLI Commands
+
+### `schemly init`
+
+Creates a default `schema.schemly` file with example models.
+
+```bash
+# Create schema.schemly in current directory
+schemly init
+
+# Create with custom name
+schemly init --output my-schema.schemly
+
+# Force overwrite if file exists
+schemly init --force
+```
+
+### `schemly init-rules`
+
+Sets up project rules to optimize Schemly AI context.
+
+```bash
+# Create .cursorrules and .windsurfrules in current directory
+schemly init-rules
+
+# Create in a specific directory
+schemly init-rules --output /path/to/laravel-project
+```
+
+### `schemly generate`
+
+Compiles the schema into Laravel code.
+
+```bash
+# Generate all components (reads schema.schemly by default)
+schemly generate
+
+# Use custom schema file
+schemly generate --file my-schema.schemly
+
+# Generate in specific Laravel project
+schemly generate --output /path/to/laravel-project
+
+# Preview what would be generated (dry run)
+schemly generate --dry-run
+
+# Force overwrite existing files
+schemly generate --force
+
+# Generate only specific components
+schemly generate --only models,migrations
+schemly generate --only controllers,resources,factories
+
+# Generate everything EXCEPT specific components
+schemly generate --exclude requests,dtos
+
+# Use Domain-Driven Design structure
+schemly generate --ddd
+
+# Verbose output
+schemly generate --verbose
+```
+
+**Available components for `--only` / `--exclude` flags:**
+- `models` - Eloquent models
+- `migrations` - Database migrations
+- `controllers` - API controllers
+- `resources` - API resources
+- `factories` - Model factories
+- `requests` - Form Requests (Store/Update)
+- `dtos` - Data Transfer Objects
+- `pivot` - Pivot tables
+
+### `schemly watch`
+
+Watches the schema file and auto-generates on save (coming soon).
+
+```bash
+schemly watch
+schemly watch --file my-schema.schemly
+```
+
+### `schemly doctor`
+
+Checks your Laravel project for compatibility.
+
+```bash
+# Check current directory
+schemly doctor
+
+# Check specific Laravel project
+schemly doctor --path /path/to/laravel-project
 ```
 
 ## Examples
 
 Schemly comes with three comprehensive examples to get you started:
 
-### 📱 **Linktree Example** (`examples/linktree.yaml`)
+### 📱 **Linktree Example** (`examples/linktree.schema`)
 A simple social media link aggregator similar to Linktree:
 - **Models**: User, Link, Category
-- **Features**: Basic relationships, validation rules
+- **Features**: Basic relationships, validation rules, soft deletes
 - **Perfect for**: Learning Schemly basics
 
 ```bash
-schemly --config examples/linktree.yaml
+schemly generate --file examples/linktree.schema
 ```
 
-### 🛒 **E-commerce Example** (`examples/ecommerce.yaml`)
+### 🛒 **E-commerce Example** (`examples/ecommerce.schema`)
 A complete online store system:
 - **Models**: User, Category, Product, Order, OrderItem, Review, Address, Image
 - **Features**: Complex relationships, decimal pricing, polymorphic images, enums
 - **Perfect for**: Production e-commerce applications
 
 ```bash
-schemly --config examples/ecommerce.yaml
+schemly generate --file examples/ecommerce.schema
 ```
 
-### 📝 **Blog Example** (`examples/blog.yaml`)
+### 📝 **Blog Example** (`examples/blog.schema`)
 An advanced content management system:
 - **Models**: User, Category, Tag, Post, Comment, Media, Newsletter, Subscriber
 - **Features**: DDD structure, many-to-many relationships, polymorphic comments, SEO fields
 - **Perfect for**: Content-heavy applications
 
 ```bash
-schemly --config examples/blog.yaml
+schemly generate --file examples/blog.schema
 ```
 
-### 📚 **AI-Friendly Documentation**
-Complete YAML syntax guide designed for AI assistants:
-- **Location**: `docs/YAML_SYNTAX_GUIDE.md`
-- **Features**: Comprehensive field types, relationship patterns, validation rules
-- **Perfect for**: AI code generation and reference
+## Schema Syntax
 
-## Usage
+Schemly uses a Prisma-like schema syntax that's modern, readable, and industry-standard.
 
-### Basic Commands
+### Basic Structure
 
-```bash
-# Generate all components (default behavior)
-schemly --config models.yml
+```prisma
+// Generator configuration
+generator laravel {
+  provider = "schemly"
+  output   = "./app"
+}
 
-# Generate in specific Laravel project directory
-schemly --config models.yml --output /path/to/laravel-project
+// Database configuration
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
 
-# Force overwrite existing files
-schemly --config models.yml --force
+// Enum definition
+enum UserRole {
+  admin
+  editor
+  author
+}
 
-# Show help
-schemly --help
-```
+// Model definition
+model User {
+  // Fields
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  email     String   @unique
+  role      UserRole @default(author)
 
-### Selective Generation
+  // Relationships
+  posts     Post[]
 
-**Generate only specific components:**
-
-```bash
-# Only models
-schemly --config models.yml --only-models
-
-# Only migrations
-schemly --config models.yml --only-migrations
-
-# Models and migrations only
-schemly --config models.yml --only-models --only-migrations
-
-# Only controllers and resources
-schemly --config models.yml --only-controllers --only-resources
-```
-
-**Skip specific components:**
-
-```bash
-# Skip controllers
-schemly --config models.yml --no-controllers
-
-# Skip factories and resources
-schemly --config models.yml --no-factories --no-resources
-
-# Generate everything except pivot tables
-schemly --config models.yml --no-pivot-tables
-```
-
-### Command Line Options
-
-| Option                | Description                     | Default                 |
-| --------------------- | ------------------------------- | ----------------------- |
-| `-c, --config <FILE>` | Path to YAML configuration file | Required                |
-| `-o, --output <DIR>`  | Laravel project root directory  | `.` (current directory) |
-| `--only-models`       | Generate only models            |                         |
-| `--only-controllers`  | Generate only controllers       |                         |
-| `--only-resources`    | Generate only resources         |                         |
-| `--only-factories`    | Generate only factories         |                         |
-| `--only-migrations`   | Generate only migrations        |                         |
-| `--only-pivot-tables` | Generate only pivot tables      |                         |
-| `--no-models`         | Skip model generation           |                         |
-| `--no-controllers`    | Skip controller generation      |                         |
-| `--no-resources`      | Skip resource generation        |                         |
-| `--no-factories`      | Skip factory generation         |                         |
-| `--no-migrations`     | Skip migration generation       |                         |
-| `--no-pivot-tables`   | Skip pivot table generation     |                         |
-| `--force`             | Force overwrite existing files  |                         |
-| `-h, --help`          | Show help information           |                         |
-
-## YAML Configuration
-
-### Basic Model Structure
-
-```yaml
-models:
-  - name: ModelName # Required: PHP class name
-    table: table_name # Required: Database table name
-    timestamps: true # Optional: Add created_at/updated_at (default: false)
-    softDeletes: false # Optional: Add soft delete support (default: false)
-    fields: # Required: List of model fields
-      - name: field_name
-        type: string
-        # ... field options
-    relationships: # Optional: Model relationships
-      - type: hasMany
-        model: RelatedModel
-        # ... relationship options
-    pivotTables: # Optional: Pivot tables for many-to-many
-      - name: pivot_table_name
-        # ... pivot table options
+  // Model attributes
+  @@map("users")
+  @@traits(["HasFactory", "Notifiable"])
+  @@fillable(["name", "email", "role"])
+  @@softDeletes
+}
 ```
 
 ### Field Types
 
-Schemly supports all Laravel field types:
+- `String` - VARCHAR
+- `Int` - INTEGER
+- `BigInt` - BIGINT
+- `Float` - FLOAT
+- `Decimal` - DECIMAL
+- `Boolean` - BOOLEAN
+- `DateTime` - DATETIME/TIMESTAMP
+- `Json` - JSON
+- `Bytes` - BLOB
 
-```yaml
-fields:
-  # String types
-  - name: title
-    type: string
-    length: 255 # Optional: field length
-    nullable: false # Optional: allow null (default: false)
-    unique: true # Optional: unique constraint (default: false)
-    index: true # Optional: database index (default: false)
-    default: "default_value" # Optional: default value
+### Field Attributes
 
-  # Text types
-  - name: description
-    type: text # text, longText, mediumText
+- `@id` - Primary key
+- `@default(value)` - Default value
+- `@unique` - Unique constraint
+- `@map("column_name")` - Custom column name
+- `@updatedAt` - Auto-update timestamp
+- `@db.VarChar(255)` - Database-specific type
+- `@validate("rules")` - Laravel validation rules
+- `@relation(...)` - Relationship definition
 
-  # Numeric types
-  - name: age
-    type: integer # integer, bigInteger, tinyInteger, smallInteger, mediumInteger
-    unsigned: true # Optional: unsigned constraint
+### Model Attributes
 
-  - name: price
-    type: decimal
-    decimal_precision: # Optional: decimal precision
-      precision: 8
-      scale: 2
-
-  # Other types
-  - name: is_active
-    type: boolean
-
-  - name: birth_date
-    type: date # date, dateTime, timestamp
-
-  - name: metadata
-    type: json
-
-  - name: uuid
-    type: uuid
-
-  - name: status
-    type: enum
-    enum_values: # Required for enum fields
-      - value: "active"
-        label: "Active" # Optional: human-readable label
-      - value: "inactive"
-        label: "Inactive"
-
-  - name: ip_address
-    type: inet # IP address field
-
-  - name: file_data
-    type: binary # Binary data
-```
+- `@@map("table_name")` - Custom table name
+- `@@traits([...])` - Laravel traits
+- `@@fillable([...])` - Mass assignable fields
+- `@@guarded([...])` - Guarded fields
+- `@@softDeletes` - Soft delete support
+- `@@timestamps` - Created/updated timestamps
 
 ### Relationships
 
-Schemly supports all Laravel relationship types:
+```prisma
+// One-to-Many
+model User {
+  posts Post[]
+}
 
-```yaml
-relationships:
-  # One-to-Many
-  - type: hasMany
-    model: Post
-    foreignKey: user_id # Optional: custom foreign key
+model Post {
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
-  # Many-to-One
-  - type: belongsTo
-    model: User
-    foreignKey: user_id # Optional: custom foreign key
+// Many-to-Many (automatic pivot table)
+model Post {
+  tags Tag[]
+}
 
-  # One-to-One
-  - type: hasOne
-    model: Profile
-    foreignKey: user_id
-
-  # Many-to-Many
-  - type: belongsToMany
-    model: Role
-    pivotTable: user_roles # Optional: custom pivot table name
-
-  # Polymorphic relationships
-  - type: morphTo
-    morphName: commentable # Required: morph name
-
-  - type: morphOne
-    model: Image
-    morphName: imageable
-
-  - type: morphMany
-    model: Comment
-    morphName: commentable
-
-  - type: morphToMany
-    model: Tag
-    morphName: taggable
-    pivotTable: taggables # Optional: custom pivot table
+model Tag {
+  posts Post[]
+}
 ```
 
-### Pivot Tables
+For complete syntax reference, see `docs/GRAMMAR_COMPARISON.md`.
 
-Define pivot tables for many-to-many relationships:
+## Configuration Precedence
 
-```yaml
-models:
-  - name: User
-    # ... user fields
-    pivotTables:
-      - name: user_roles
-        model1: User
-        model2: Role
-        foreignKey1: user_id
-        foreignKey2: role_id
-        timestamps: true # Optional: add timestamps to pivot
-        additionalFields: # Optional: extra fields in pivot table
-          - name: assigned_at
-            type: timestamp
-          - name: assigned_by
-            type: bigInteger
+Schemly follows a three-level configuration system:
+
+### Level 1: Defaults (Hardcoded in Rust)
+- Don't overwrite customized controllers
+- Generate all components by default
+- Use traditional Laravel folder structure
+
+### Level 2: Schema File Config Block
+Project-wide settings defined in your schema file:
+
+```prisma
+generator laravel {
+  provider = "schemly"
+  output   = "./app"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
 ```
 
-### Complete Example
+### Level 3: CLI Arguments (Runtime Overrides)
+Command-line flags override everything:
 
-```yaml
-# Laravel E-commerce Models Configuration
-outputDir: "."
-namespace: "App\\Models"
+```bash
+# Override output directory
+schemly generate --output /custom/path
 
-models:
-  - name: User
-    table: users
-    timestamps: true
-    softDeletes: false
-    fields:
-      - name: name
-        type: string
-        length: 255
-        nullable: false
-      - name: email
-        type: string
-        length: 255
-        nullable: false
-        unique: true
-        index: true
-      - name: email_verified_at
-        type: timestamp
-        nullable: true
-      - name: password
-        type: string
-        length: 255
-        nullable: false
-      - name: role
-        type: enum
-        enum_values:
-          - value: "admin"
-            label: "Administrator"
-          - value: "customer"
-            label: "Customer"
-        default: "customer"
-    relationships:
-      - type: hasMany
-        model: Order
-        foreignKey: user_id
-      - type: belongsToMany
-        model: Role
-        pivotTable: user_roles
-    pivotTables:
-      - name: user_roles
-        model1: User
-        model2: Role
-        foreignKey1: user_id
-        foreignKey2: role_id
-        timestamps: true
+# Override safety checks
+schemly generate --force
 
-  - name: Product
-    table: products
-    timestamps: true
-    softDeletes: true
-    fields:
-      - name: name
-        type: string
-        length: 255
-        nullable: false
-      - name: description
-        type: text
-        nullable: true
-      - name: price
-        type: decimal
-        decimal_precision:
-          precision: 10
-          scale: 2
-        nullable: false
-      - name: stock_quantity
-        type: integer
-        unsigned: true
-        default: "0"
-      - name: is_active
-        type: boolean
-        default: "true"
-    relationships:
-      - type: hasMany
-        model: OrderItem
-        foreignKey: product_id
-      - type: morphMany
-        model: Image
-        morphName: imageable
-
-  - name: Order
-    table: orders
-    timestamps: true
-    fields:
-      - name: user_id
-        type: bigInteger
-        nullable: false
-        index: true
-      - name: total_amount
-        type: decimal
-        decimal_precision:
-          precision: 10
-          scale: 2
-        nullable: false
-      - name: status
-        type: enum
-        enum_values:
-          - value: "pending"
-          - value: "processing"
-          - value: "shipped"
-          - value: "delivered"
-          - value: "cancelled"
-        default: "pending"
-    relationships:
-      - type: belongsTo
-        model: User
-        foreignKey: user_id
-      - type: hasMany
-        model: OrderItem
-        foreignKey: order_id
-
-  - name: OrderItem
-    table: order_items
-    timestamps: true
-    fields:
-      - name: order_id
-        type: bigInteger
-        nullable: false
-        index: true
-      - name: product_id
-        type: bigInteger
-        nullable: false
-        index: true
-      - name: quantity
-        type: integer
-        unsigned: true
-        nullable: false
-      - name: price
-        type: decimal
-        decimal_precision:
-          precision: 10
-          scale: 2
-        nullable: false
-    relationships:
-      - type: belongsTo
-        model: Order
-        foreignKey: order_id
-      - type: belongsTo
-        model: Product
-        foreignKey: product_id
-
-  - name: Image
-    table: images
-    timestamps: true
-    fields:
-      - name: imageable_type
-        type: string
-        length: 255
-        nullable: false
-      - name: imageable_id
-        type: bigInteger
-        nullable: false
-      - name: filename
-        type: string
-        length: 255
-        nullable: false
-      - name: path
-        type: string
-        length: 500
-        nullable: false
-      - name: alt_text
-        type: string
-        length: 255
-        nullable: true
-    relationships:
-      - type: morphTo
-        morphName: imageable
+# Override component selection
+schemly generate --only models,migrations
+schemly generate --exclude dtos,factories
 ```
 
 ## Generated Files
@@ -544,6 +426,12 @@ Schemly generates the following Laravel files:
 
 - Resource controllers with CRUD operations
 - Proper imports and type hints
+
+### Requests (`app/Http/Requests/`)
+
+- Form Request classes for `store` and `update` actions
+- Automatic validation rules mapped from schema fields
+- Includes custom `@validate()` rules
 
 ### Resources (`app/Http/Resources/`)
 
@@ -629,45 +517,38 @@ Error: At least one component type must be enabled for generation
 
 Begin with a simple model and gradually add complexity:
 
-```yaml
-models:
-  - name: User
-    table: users
-    fields:
-      - name: name
-        type: string
-      - name: email
-        type: string
-        unique: true
+```prisma
+model User {
+  id    Int    @id @default(autoincrement())
+  name  String @db.VarChar(255)
+  email String @unique @db.VarChar(255)
+
+  @@map("users")
+}
 ```
 
 ### 2. Use Descriptive Field Names
 
 Field names help generate better fake data:
 
-```yaml
-fields:
-  - name: first_name # Generates fake()->firstName()
-    type: string
-  - name: email_address # Generates fake()->email()
-    type: string
-  - name: phone_number # Generates fake()->phoneNumber()
-    type: string
+```prisma
+model User {
+  firstName   String @db.VarChar(100) @map("first_name")   // Generates fake()->firstName()
+  emailAddress String @db.VarChar(255) @map("email_address") // Generates fake()->email()
+  phoneNumber String @db.VarChar(20) @map("phone_number")  // Generates fake()->phoneNumber()
+}
 ```
 
-### 3. Organize Large Projects
+### 3. Use Dry Run First
 
-Split large configurations into multiple files:
+Always preview what will be generated:
 
 ```bash
-# Generate user-related models
-schemly --config users.yml --only-models
+# Preview before generating
+schemly generate --dry-run
 
-# Generate product-related models
-schemly --config products.yml --only-models
-
-# Generate all migrations at once
-schemly --config users.yml --config products.yml --only-migrations
+# Review the output, then generate for real
+schemly generate
 ```
 
 ### 4. Test Before Committing
@@ -676,13 +557,17 @@ Always test generated code:
 
 ```bash
 # Generate in a test directory first
-schemly --config models.yml --output /tmp/test-laravel
+schemly generate --output /tmp/test-laravel --dry-run
+
+# Review what would be generated
+# Then generate for real
+schemly generate --output /tmp/test-laravel
 
 # Review generated files
 ls -la /tmp/test-laravel/app/Models/
 
 # Then generate in your real project
-schemly --config models.yml --output /path/to/real-project
+schemly generate --output /path/to/real-project
 ```
 
 ### 5. Version Control Integration
@@ -691,14 +576,36 @@ Add schemly to your development workflow:
 
 ```bash
 # Generate fresh files
-schemly --config models.yml --force
+schemly generate --force
 
 # Review changes
 git diff
 
 # Commit if satisfied
 git add .
-git commit -m "Regenerate Laravel models from YAML config"
+git commit -m "Regenerate Laravel models from schema"
+```
+
+### 6. Set Up AI Constraints
+
+If using an AI like Cursor or Windsurf, generate context rules:
+
+```bash
+# Generates .cursorrules and .windsurfrules 
+# Forces AI to rely on Schemly + Schema changes instead of manual Laravel boilerplate
+schemly init-rules
+```
+
+### 7. Use Doctor Command
+
+Check your Laravel project before generating:
+
+```bash
+# Check if project is ready
+schemly doctor
+
+# Then generate
+schemly generate
 ```
 
 ## Troubleshooting
@@ -713,17 +620,23 @@ chmod 755 /path/to/laravel-project
 chmod -R 644 /path/to/laravel-project/app/Models/
 ```
 
-**Invalid YAML**
+**Invalid Schema Syntax**
 
 ```bash
-# Validate YAML syntax
-python -c "import yaml; yaml.safe_load(open('models.yml'))"
+# Use verbose mode to see detailed parsing errors
+schemly generate --verbose
+
+# Or check the schema file manually
+cat schema.schemly
 ```
 
 **Missing Directories**
 
 ```bash
-# Ensure Laravel directory structure exists
+# Use doctor command to check Laravel project structure
+schemly doctor
+
+# Or ensure Laravel directory structure exists
 mkdir -p app/Models database/migrations app/Http/Controllers
 ```
 
@@ -732,7 +645,7 @@ mkdir -p app/Models database/migrations app/Http/Controllers
 For detailed error information, use Rust's debug output:
 
 ```bash
-RUST_BACKTRACE=1 schemly --config models.yml
+RUST_BACKTRACE=1 schemly generate
 ```
 
 ### Development Setup
@@ -761,38 +674,101 @@ cargo test test_model_generation
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Why We Dropped YAML Support
+
+In version 2.0.0, we completely migrated from YAML to Prisma-like schema syntax. Here's why:
+
+### Verbosity Comparison
+
+**YAML (Old - 28 lines):**
+```yaml
+models:
+  - name: User
+    table: users
+    timestamps: true
+    softDeletes: true
+    fields:
+      - name: name
+        type: string
+        length: 255
+        nullable: false
+      - name: email
+        type: string
+        length: 255
+        nullable: false
+        unique: true
+      - name: password
+        type: string
+        length: 255
+        nullable: false
+    relationships:
+      - type: hasMany
+        model: Post
+        foreignKey: user_id
+    traits:
+      - HasFactory
+      - Notifiable
+```
+
+**Prisma-like (New - 15 lines - 46% less code!):**
+```prisma
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  posts     Post[]
+
+  @@map("users")
+  @@traits(["HasFactory", "Notifiable"])
+  @@softDeletes
+}
+```
+
+### Benefits of Prisma-like Syntax
+
+✅ **~60% less verbose** - More concise, easier to read
+✅ **Industry standard** - Familiar to developers using Prisma
+✅ **Better tooling** - Syntax highlighting, IDE support
+✅ **Type safety** - Clear field types and relationships
+✅ **Modern syntax** - Attributes instead of nested YAML
+
 ## Changelog
 
-### Version 0.8.0 (Latest)
+See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 
-**🎉 Major Release - Enhanced Examples & Documentation**
+### Version 2.0.0 (Latest)
 
-**New Features:**
-- ✅ **Three Complete Examples**: Added comprehensive YAML examples for different use cases
-  - `examples/linktree.yaml` - Simple link management system
-  - `examples/ecommerce.yaml` - Full e-commerce platform with complex relationships
-  - `examples/blog.yaml` - Advanced blog system with DDD structure
-- ✅ **AI-Friendly Documentation**: Complete YAML syntax guide in `docs/YAML_SYNTAX_GUIDE.md`
-- ✅ **DDD Support**: Optional Domain-Driven Design folder structure
-- ✅ **Enhanced Field Types**: Support for all Laravel field types with proper validation
-
-**Bug Fixes:**
-- 🐛 **Fixed Field Naming**: Corrected snake_case naming for `enum_values` and `decimal_precision`
-- 🐛 **Fixed Polymorphic Relationships**: Resolved `morphTo` relationship parsing issues
-- 🐛 **Improved Validation**: Better error messages for enum and decimal field validation
-
-**Documentation:**
-- 📚 **Comprehensive Examples**: Real-world YAML configurations for immediate use
-- 📚 **AI Integration Guide**: Structured documentation for AI code generation
-- 📚 **Field Type Reference**: Complete mapping of YAML types to Laravel migrations
-- 📚 **Relationship Patterns**: All Laravel relationship types with examples
+**🎉 Major Release - Prisma-like Schema Syntax**
 
 **Breaking Changes:**
-- ⚠️ **Field Naming**: Changed from camelCase to snake_case for consistency:
-  - `enumValues` → `enum_values`
-  - `decimalPrecision` → `decimal_precision`
+- ⚠️ **Complete migration from YAML to Prisma-like schema format**
+- ⚠️ **New CLI structure with subcommands** (`init`, `generate`, `watch`, `doctor`)
+- ⚠️ **No backward compatibility with YAML files**
+- ⚠️ **Dropped YAML support due to verbosity** (~60% reduction in configuration size)
 
-See [CHANGELOG.md](CHANGELOG.md) for complete version history.
+**New Features:**
+- ✅ **Prisma-like Syntax**: Modern, industry-standard schema definition language
+- ✅ **New CLI Commands**: `init`, `generate`, `watch`, `doctor`, `init-rules`
+- ✅ **Component Pruning**: Added `--exclude` flag to generate everything EXCEPT specific targets
+- ✅ **Dry Run Mode**: Preview what would be generated with `--dry-run`
+- ✅ **Doctor Command**: Check Laravel project compatibility
+- ✅ **Improved Component Selection**: `--only models,migrations` syntax
+- ✅ **Enhanced Parser**: Pest-based grammar with full Prisma compatibility
+- ✅ **~60% Reduction**: Less verbose configuration compared to YAML
+
+**Examples Updated:**
+- ✅ `examples/linktree.schema` - 3 models with basic relationships
+- ✅ `examples/blog.schema` - 8 models with enums and polymorphic relationships
+- ✅ `examples/ecommerce.schema` - 8 models with complex relationships
+
+**Documentation:**
+- 📚 **Grammar Comparison**: Complete Prisma vs Schemly feature comparison
+- 📚 **Migration Guide**: How to convert from YAML to Prisma-like syntax
+- 📚 **Updated README**: New CLI commands and schema syntax examples
 
 ## Support
 

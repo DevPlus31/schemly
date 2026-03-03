@@ -12,8 +12,8 @@ impl Generator for PivotTableGenerator {
     fn generate(&self, _model: &ModelDefinition, _config: &Config) -> Result<String> {
         // We need to handle the case where we're passed a ModelDefinition instead of a PivotTable
         // This is a temporary solution until we refactor the Generator trait to be more generic
-        return Err(crate::error::GeneratorError::ModelValidation(
-            "PivotTableGenerator can only generate pivot tables, not models".to_string()));
+        Err(crate::error::GeneratorError::ModelValidation(
+            "PivotTableGenerator can only generate pivot tables, not models".to_string()))
     }
 
     fn get_file_path(&self, model: &ModelDefinition, config: &Config) -> String {

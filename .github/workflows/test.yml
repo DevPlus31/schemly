@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+        
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+        
+    - name: Check Formatting
+      run: cargo fmt -- --check
+      
+    - name: Run Clippy (Linter)
+      run: cargo clippy -- -D warnings
+      
+    - name: Run Tests
+      run: cargo test --verbose
+      
+    - name: Compile CLI (Release)
+      run: cargo build --release --bin schemly
+      
+    - name: Test CLI Execution
+      run: |
+        ./target/release/schemly --help
+        ./target/release/schemly generate -f examples/blog.schema --dry-run

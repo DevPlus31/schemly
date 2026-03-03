@@ -34,14 +34,7 @@ impl Validator {
                 ));
             }
         }
-        
-        // Validate that ID field is not manually defined (it's auto-generated)
-        if model.fields.iter().any(|f| f.name == "id") {
-            return Err(GeneratorError::ModelValidation(
-                format!("Model '{}' should not manually define 'id' field - it's auto-generated", model.name)
-            ));
-        }
-        
+
         Ok(())
     }
     
@@ -174,43 +167,7 @@ impl Validator {
         
         Ok(())
     }
-    
-    /// Sanitizes a field name to ensure it's valid for PHP
-    pub fn sanitize_field_name(name: &str) -> Result<String> {
-        if name.is_empty() {
-            return Err(GeneratorError::InvalidIdentifier(
-                "Field name cannot be empty".to_string()
-            ));
-        }
-        
-        let mut sanitized = String::new();
-        
-        // Handle first character
-        let first_char = name.chars().next().unwrap();
-        if first_char.is_ascii_alphabetic() || first_char == '_' {
-            sanitized.push(first_char);
-        } else if first_char.is_ascii_digit() {
-            sanitized.push('_');
-            sanitized.push(first_char);
-        } else {
-            sanitized.push('_');
-        }
-        
-        // Handle remaining characters
-        for c in name.chars().skip(1) {
-            if c.is_ascii_alphanumeric() || c == '_' {
-                sanitized.push(c);
-            } else {
-                sanitized.push('_');
-            }
-        }
-        
-        // Validate the sanitized name
-        Self::validate_identifier(&sanitized, "Sanitized field name")?;
-        
-        Ok(sanitized)
-    }
-    
+
     /// Checks if a string is a PHP reserved word
     fn is_php_reserved_word(word: &str) -> bool {
         const PHP_RESERVED_WORDS: &[&str] = &[
@@ -267,6 +224,8 @@ mod tests {
             validation_rules: vec![],
             traits: vec![],
             fillable_guarded: FillableGuarded::All,
+            compound_indexes: vec![],
+            compound_uniques: vec![],
         }
     }
 
@@ -298,14 +257,7 @@ mod tests {
         assert!(Validator::validate_model(&model).is_err());
     }
 
-    #[test]
-    fn test_validate_manual_id_field() {
-        let mut model = create_valid_model();
-        let mut id_field = create_valid_field();
-        id_field.name = "id".to_string();
-        model.fields.push(id_field);
-        assert!(Validator::validate_model(&model).is_err());
-    }
+
 
     #[test]
     fn test_validate_identifier_valid() {
@@ -322,12 +274,7 @@ mod tests {
         assert!(Validator::validate_identifier("class", "Test").is_err()); // PHP reserved word
     }
 
-    #[test]
-    fn test_sanitize_field_name() {
-        assert_eq!(Validator::sanitize_field_name("valid_name").unwrap(), "valid_name");
-        assert_eq!(Validator::sanitize_field_name("123invalid").unwrap(), "_123invalid");
-        assert_eq!(Validator::sanitize_field_name("invalid-name").unwrap(), "invalid_name");
-    }
+
 
     #[test]
     fn test_validate_decimal_field() {

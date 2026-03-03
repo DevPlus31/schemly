@@ -64,19 +64,6 @@ impl FieldType {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum RelationshipType {
-    BelongsTo,
-    HasMany,
-    HasOne,
-    BelongsToMany,
-    MorphTo,
-    MorphOne,
-    MorphMany,
-    MorphToMany,
-}
-
 // Standard relationship for most relationship types
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct StandardRelationship {
@@ -165,19 +152,18 @@ pub struct ModelDefinition {
     pub traits: Vec<String>,
     #[serde(default)]
     pub fillable_guarded: FillableGuarded,
+    #[serde(default)]
+    pub compound_indexes: Vec<Vec<String>>,
+    #[serde(default)]
+    pub compound_uniques: Vec<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub enum FillableGuarded {
     Fillable(Vec<String>),
     Guarded(Vec<String>),
+    #[default]
     All,
-}
-
-impl Default for FillableGuarded {
-    fn default() -> Self {
-        FillableGuarded::All
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -226,116 +212,7 @@ pub enum Relationship {
     MorphToMany(PolymorphicWithModelRelationship),
 }
 
-impl Relationship {
-    pub fn get_model(&self) -> Option<&str> {
-        match self {
-            Relationship::BelongsTo(rel) => Some(&rel.model),
-            Relationship::HasMany(rel) => Some(&rel.model),
-            Relationship::HasOne(rel) => Some(&rel.model),
-            Relationship::BelongsToMany(rel) => Some(&rel.model),
-            Relationship::MorphTo(_) => None, // No model for morphTo
-            Relationship::MorphOne(rel) => Some(&rel.model),
-            Relationship::MorphMany(rel) => Some(&rel.model),
-            Relationship::MorphToMany(rel) => Some(&rel.model),
-        }
-    }
 
-    pub fn get_foreign_key(&self) -> Option<&str> {
-        match self {
-            Relationship::BelongsTo(rel) => rel.foreign_key.as_deref(),
-            Relationship::HasMany(rel) => rel.foreign_key.as_deref(),
-            Relationship::HasOne(rel) => rel.foreign_key.as_deref(),
-            Relationship::BelongsToMany(rel) => rel.foreign_key.as_deref(),
-            Relationship::MorphTo(rel) => rel.foreign_key.as_deref(),
-            Relationship::MorphOne(rel) => rel.foreign_key.as_deref(),
-            Relationship::MorphMany(rel) => rel.foreign_key.as_deref(),
-            Relationship::MorphToMany(rel) => rel.foreign_key.as_deref(),
-        }
-    }
-
-    pub fn get_local_key(&self) -> Option<&str> {
-        match self {
-            Relationship::BelongsTo(rel) => rel.local_key.as_deref(),
-            Relationship::HasMany(rel) => rel.local_key.as_deref(),
-            Relationship::HasOne(rel) => rel.local_key.as_deref(),
-            Relationship::BelongsToMany(rel) => rel.local_key.as_deref(),
-            Relationship::MorphTo(rel) => rel.local_key.as_deref(),
-            Relationship::MorphOne(rel) => rel.local_key.as_deref(),
-            Relationship::MorphMany(rel) => rel.local_key.as_deref(),
-            Relationship::MorphToMany(rel) => rel.local_key.as_deref(),
-        }
-    }
-
-    pub fn get_pivot_table(&self) -> Option<&str> {
-        match self {
-            Relationship::BelongsToMany(rel) => rel.pivot_table.as_deref(),
-            Relationship::MorphToMany(rel) => rel.pivot_table.as_deref(),
-            _ => None,
-        }
-    }
-
-    pub fn get_morph_name(&self) -> Option<&str> {
-        match self {
-            Relationship::MorphTo(rel) => Some(&rel.morph_name),
-            Relationship::MorphOne(rel) => Some(&rel.morph_name),
-            Relationship::MorphMany(rel) => Some(&rel.morph_name),
-            Relationship::MorphToMany(rel) => Some(&rel.morph_name),
-            _ => None,
-        }
-    }
-
-    pub fn get_on_delete(&self) -> Option<&str> {
-        match self {
-            Relationship::BelongsTo(rel) => rel.on_delete.as_deref(),
-            Relationship::HasMany(rel) => rel.on_delete.as_deref(),
-            Relationship::HasOne(rel) => rel.on_delete.as_deref(),
-            Relationship::BelongsToMany(rel) => rel.on_delete.as_deref(),
-            Relationship::MorphOne(rel) => rel.on_delete.as_deref(),
-            Relationship::MorphMany(rel) => rel.on_delete.as_deref(),
-            Relationship::MorphToMany(rel) => rel.on_delete.as_deref(),
-            _ => None,
-        }
-    }
-
-    pub fn get_on_update(&self) -> Option<&str> {
-        match self {
-            Relationship::BelongsTo(rel) => rel.on_update.as_deref(),
-            Relationship::HasMany(rel) => rel.on_update.as_deref(),
-            Relationship::HasOne(rel) => rel.on_update.as_deref(),
-            Relationship::BelongsToMany(rel) => rel.on_update.as_deref(),
-            Relationship::MorphOne(rel) => rel.on_update.as_deref(),
-            Relationship::MorphMany(rel) => rel.on_update.as_deref(),
-            Relationship::MorphToMany(rel) => rel.on_update.as_deref(),
-            _ => None,
-        }
-    }
-
-    pub fn get_with_timestamps(&self) -> bool {
-        match self {
-            Relationship::BelongsTo(rel) => rel.with_timestamps,
-            Relationship::HasMany(rel) => rel.with_timestamps,
-            Relationship::HasOne(rel) => rel.with_timestamps,
-            Relationship::BelongsToMany(rel) => rel.with_timestamps,
-            Relationship::MorphOne(rel) => rel.with_timestamps,
-            Relationship::MorphMany(rel) => rel.with_timestamps,
-            Relationship::MorphToMany(rel) => rel.with_timestamps,
-            _ => false,
-        }
-    }
-
-    pub fn get_relationship_type(&self) -> RelationshipType {
-        match self {
-            Relationship::BelongsTo(_) => RelationshipType::BelongsTo,
-            Relationship::HasMany(_) => RelationshipType::HasMany,
-            Relationship::HasOne(_) => RelationshipType::HasOne,
-            Relationship::BelongsToMany(_) => RelationshipType::BelongsToMany,
-            Relationship::MorphTo(_) => RelationshipType::MorphTo,
-            Relationship::MorphOne(_) => RelationshipType::MorphOne,
-            Relationship::MorphMany(_) => RelationshipType::MorphMany,
-            Relationship::MorphToMany(_) => RelationshipType::MorphToMany,
-        }
-    }
-}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct PivotTable {
@@ -372,6 +249,8 @@ pub struct Config {
     #[serde(default)]
     pub generate_validation_rules: bool,
     #[serde(default)]
+    pub generate_requests: bool,
+    #[serde(default)]
     pub generate_dto: bool,
     #[serde(default)]
     pub use_ddd_structure: bool,
@@ -394,6 +273,7 @@ impl Default for Config {
             generate_migrations: true,
             generate_pivot_tables: true,
             generate_validation_rules: true,
+            generate_requests: false,
             generate_dto: false,
             use_ddd_structure: false,
             database_engine: "mysql".to_string(),

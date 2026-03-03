@@ -317,6 +317,8 @@ mod tests {
             validation_rules: vec![],
             traits: vec![],
             fillable_guarded: FillableGuarded::All,
+            compound_indexes: vec![],
+            compound_uniques: vec![],
         }
     }
 
@@ -332,6 +334,7 @@ mod tests {
             generate_migrations: true,
             generate_pivot_tables: true,
             generate_validation_rules: true,
+            generate_requests: true,
             generate_dto: true,
             use_ddd_structure: use_ddd,
             database_engine: "mysql".to_string(),
@@ -576,18 +579,5 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("Duplicate field name"));
     }
 
-    #[test]
-    fn test_validation_error_manual_id_field() {
-        let generator = DtoGenerator;
-        let mut model = create_test_model();
-        // Add manual ID field (should be auto-generated)
-        let mut id_field = model.fields[0].clone();
-        id_field.name = "id".to_string();
-        model.fields.push(id_field);
-        let config = create_test_config(false);
 
-        let result = generator.generate(&model, &config);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("should not manually define 'id' field"));
-    }
 }

@@ -43,6 +43,16 @@ impl PathResolver {
         }
     }
 
+    /// Get the file path for a Request
+    pub fn get_request_path(model: &ModelDefinition, config: &Config, action: &str) -> String {
+        let prefix = if action == "store" { "Store" } else { "Update" };
+        if config.use_ddd_structure {
+            format!("{}/app/Domain/{}/Requests/{}{}Request.php", config.output_dir, model.name, prefix, model.name)
+        } else {
+            format!("{}/app/Http/Requests/{}{}Request.php", config.output_dir, prefix, model.name)
+        }
+    }
+
 
 }
 
@@ -87,6 +97,15 @@ impl NamespaceResolver {
             "App\\DTOs".to_string()
         }
     }
+
+    /// Get the namespace for a Request
+    pub fn get_request_namespace(model: &ModelDefinition, config: &Config) -> String {
+        if config.use_ddd_structure {
+            format!("App\\Domain\\{}\\Requests", model.name)
+        } else {
+            "App\\Http\\Requests".to_string()
+        }
+    }
 }
 
 /// Creates directories for both traditional Laravel and DDD structures
@@ -104,6 +123,7 @@ impl DirectoryCreator {
                 &format!("{}/Resources", base_domain_dir),
                 &format!("{}/Factories", base_domain_dir),
                 &format!("{}/DTOs", base_domain_dir),
+                &format!("{}/Requests", base_domain_dir),
             ];
 
             for dir in dirs {
@@ -115,6 +135,7 @@ impl DirectoryCreator {
                 &format!("{}/app/Http/Resources", config.output_dir),
                 &format!("{}/database/factories", config.output_dir),
                 &format!("{}/app/DTOs", config.output_dir),
+                &format!("{}/app/Http/Requests", config.output_dir),
             ];
 
             for dir in dirs {
@@ -184,6 +205,8 @@ mod tests {
             validation_rules: vec![],
             traits: vec![],
             fillable_guarded: FillableGuarded::All,
+            compound_indexes: vec![],
+            compound_uniques: vec![],
         }
     }
 
@@ -199,6 +222,7 @@ mod tests {
             generate_migrations: true,
             generate_pivot_tables: true,
             generate_validation_rules: true,
+            generate_requests: true,
             generate_dto: true,
             use_ddd_structure: use_ddd,
             database_engine: "mysql".to_string(),
@@ -319,13 +343,13 @@ mod tests {
     #[test]
     fn test_field_type_helper_nullable_in_php() {
         // ID fields are never nullable in PHP constructors
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("id", true), false);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("id", false), false);
+        assert!(!FieldTypeHelper::is_nullable_in_php("id", true));
+        assert!(!FieldTypeHelper::is_nullable_in_php("id", false));
 
         // Other fields respect the nullable flag
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("name", true), true);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("name", false), false);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("email", true), true);
-        assert_eq!(FieldTypeHelper::is_nullable_in_php("email", false), false);
+        assert!(FieldTypeHelper::is_nullable_in_php("name", true));
+        assert!(!FieldTypeHelper::is_nullable_in_php("name", false));
+        assert!(FieldTypeHelper::is_nullable_in_php("email", true));
+        assert!(!FieldTypeHelper::is_nullable_in_php("email", false));
     }
 }

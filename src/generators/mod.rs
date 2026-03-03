@@ -5,6 +5,7 @@ pub mod resource_generator;
 pub mod factory_generator;
 pub mod pivot_table_generator;
 pub mod dto_generator;
+pub mod request_generator;
 pub mod shared;
 
 use crate::error::Result;

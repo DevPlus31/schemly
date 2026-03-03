@@ -22,7 +22,7 @@ impl Generator for ModelGenerator {
         if config.generate_factories {
             content.push_str("use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;\n");
         }
-        content.push_str("\n");
+        content.push('\n');
 
         // Class declaration
         content.push_str(&format!("class {} extends Model\n{{\n", model.name));

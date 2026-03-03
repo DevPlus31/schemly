@@ -1,0 +1,74 @@
+// Linktree Example - Simple social media link aggregator
+// Demonstrates: Basic relationships, validation rules, soft deletes
+
+generator laravel {
+  provider = "schemly"
+  output = "./app"
+  namespace = "App\\Models"
+  generateModels = true
+  generateControllers = true
+  generateDto = true
+  generateMigrations = true
+  useDddStructure = false
+  forceOverwrite = true
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100) @validate("required|string|max:100")
+  email      String   @unique @db.VarChar(255) @validate("required|email|unique:users,email")
+  password   String   @db.VarChar(255) @validate("required|string|min:8")
+  bio        String?  @db.Text @validate("nullable|string")
+  avatarUrl  String?  @db.VarChar(255) @map("avatar_url") @validate("nullable|url")
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  
+  // Relationships
+  links      Link[]
+  categories Category[]
+  
+  @@map("users")
+  @@traits(["HasFactory", "Notifiable"])
+  @@softDeletes
+}
+
+model Link {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id") @validate("required|exists:users,id")
+  categoryId Int?     @map("category_id") @validate("nullable|exists:categories,id")
+  title      String   @db.VarChar(100) @validate("required|string|max:100")
+  url        String   @db.VarChar(255) @validate("required|url")
+  isActive   Boolean  @default(true) @map("is_active") @validate("boolean")
+  order      Int?     @validate("nullable|integer")
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  
+  // Relationships
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  @@map("links")
+  @@softDeletes
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id") @validate("required|exists:users,id")
+  name      String   @db.VarChar(100) @validate("required|string|max:100")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  
+  // Relationships
+  user      User     @relation(fields: [userId], references: [id])
+  links     Link[]
+  
+  @@map("categories")
+  @@softDeletes
+}
+

@@ -1,3 +1,4 @@
+#![allow(clippy::collapsible_if)]
 use crate::error::Result;
 use crate::generators::Generator;
 use crate::types::{Config, ModelDefinition, Relationship};
@@ -43,6 +44,24 @@ impl Generator for MigrationGenerator {
             "".to_string()
         };
 
+        // Generate compound indexes and uniques
+        let mut compound_indexes = String::new();
+        for index_fields in &model.compound_indexes {
+            let fields_str = index_fields.iter()
+                .map(|f| format!("'{}'", f))
+                .collect::<Vec<_>>()
+                .join(", ");
+            compound_indexes.push_str(&format!("$table->index([{}]);\n            ", fields_str));
+        }
+        
+        for unique_fields in &model.compound_uniques {
+            let fields_str = unique_fields.iter()
+                .map(|f| format!("'{}'", f))
+                .collect::<Vec<_>>()
+                .join(", ");
+            compound_indexes.push_str(&format!("$table->unique([{}]);\n            ", fields_str));
+        }
+
         // Generate foreign key constraints
         let mut foreign_keys = String::new();
         for relationship in &model.relationships {
@@ -67,6 +86,7 @@ impl Generator for MigrationGenerator {
             .replace("{{fields}}", &fields)
             .replace("{{timestamps}}", &timestamps)
             .replace("{{soft_deletes}}", &soft_deletes)
+            .replace("{{compound_indexes}}", &compound_indexes)
             .replace("{{foreign_keys}}", &foreign_keys);
 
         Ok(content)
@@ -104,9 +124,10 @@ impl MigrationGenerator {
     }
 
     fn pluralize(&self, word: &str) -> String {
-        if word.ends_with("y") {
-            format!("{}ies", &word[..word.len()-1])
-        } else if word.ends_with("s") {
+        // Very basic pluralization, good enough for most table names
+        if let Some(stripped) = word.strip_suffix('y') {
+            format!("{}ies", stripped)
+        } else if word.ends_with('s') {
             format!("{}es", word)
         } else {
             format!("{}s", word)
