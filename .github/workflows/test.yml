@@ -33,3 +33,11 @@ jobs:
       
     - name: Run Tests
       run: cargo test --verbose
+      
+    - name: Compile CLI (Release)
+      run: cargo build --release --bin schemly
+      
+    - name: Test CLI Execution
+      run: |
+        ./target/release/schemly --help
+        ./target/release/schemly generate -f examples/blog.schema --dry-run

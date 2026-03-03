@@ -22,7 +22,6 @@ class {{ request_name }} extends FormRequest
     public function rules(): array
     {
         return [
-{% for rule in rules %}            '{{ rule.field }}' => '{{ rule.validation }}',
-{% endfor %}        ];
+            {{ rules }}        ];
     }
 }

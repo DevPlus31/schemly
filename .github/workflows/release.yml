@@ -14,22 +14,22 @@ jobs:
         include:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
-            artifact_name: schemly-linux-amd64
+            suffix: linux-amd64
             use_cross: true
           
           - target: x86_64-apple-darwin
             os: macos-latest
-            artifact_name: schemly-macos-amd64
+            suffix: macos-amd64
             use_cross: false
 
           - target: aarch64-apple-darwin
             os: macos-latest
-            artifact_name: schemly-macos-arm64
+            suffix: macos-arm64
             use_cross: false
 
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            artifact_name: schemly-windows-amd64.exe
+            suffix: windows-amd64.exe
             use_cross: false
 
     steps:
@@ -65,16 +65,18 @@ jobs:
         run: |
           mkdir -p dist
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            cp "target/${{ matrix.target }}/release/schemly.exe" "dist/${{ matrix.artifact_name }}"
+            cp "target/${{ matrix.target }}/release/schemly.exe" "dist/schemly-${{ matrix.suffix }}"
+            cp "target/${{ matrix.target }}/release/schemly_mcp.exe" "dist/schemly_mcp-${{ matrix.suffix }}"
           else
-            cp "target/${{ matrix.target }}/release/schemly" "dist/${{ matrix.artifact_name }}"
+            cp "target/${{ matrix.target }}/release/schemly" "dist/schemly-${{ matrix.suffix }}"
+            cp "target/${{ matrix.target }}/release/schemly_mcp" "dist/schemly_mcp-${{ matrix.suffix }}"
           fi
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: dist/${{ matrix.artifact_name }}
-          asset_name: ${{ matrix.artifact_name }}
+          file: dist/schemly*
+          file_glob: true
           tag: ${{ github.ref }}
           overwrite: true

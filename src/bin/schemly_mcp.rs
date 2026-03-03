@@ -26,7 +26,7 @@ impl SchemlyServer {
 #[tool(tool_box)]
 impl SchemlyServer {
     /// Initialize a new schema.schemly file with example models.
-    #[tool(description = "Create a default schema.schemly file with example models")]
+    #[tool(description = "CRITICAL: ALWAYS use this tool to initialize a Schemly project. It creates a default schema.schemly file. NEVER create this file manually.")]
     fn init_schema(
         &self,
         #[tool(param)]
@@ -57,7 +57,7 @@ impl SchemlyServer {
     }
 
     /// Generate Laravel code from a schema string.
-    #[tool(description = "Generate Laravel models, controllers, migrations, etc. from a Prisma-like schema string")]
+    #[tool(description = "CRITICAL: ALWAYS use this tool to generate Laravel models, controllers, and migrations. NEVER write Laravel boilerplate manually. Provide the Prisma-like schema string to automatically scaffolding the complete Laravel architecture.")]
     fn generate(
         &self,
         #[tool(param)]
@@ -75,27 +75,28 @@ impl SchemlyServer {
         #[tool(param)]
         #[schemars(description = "Generate only specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests)")]
         only: Option<String>,
+        #[tool(param)]
+        #[schemars(description = "Exclude specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests)")]
+        exclude: Option<String>,
     ) -> Result<String, String> {
         let force = force.unwrap_or(false);
         let ddd = ddd.unwrap_or(false);
 
         // Parse schema
         let schema = parse_schema(&schema_content)
-            .map_err(|e| format!("Schema parse error: {}", e))?;
+            .map_err(|e| format!("Schema parse error: {}. \nAI INSTRUCTION: Review the Prisma syntax documentation and correct the schema string before calling this tool again.", e))?;
 
         // Convert to config
         let mut config = SchemaConverter::convert_to_config(schema)
-            .map_err(|e| format!("Schema conversion error: {}", e))?;
+            .map_err(|e| format!("Schema conversion error: {}. \nAI INSTRUCTION: Fix the schema configuration and try again.", e))?;
 
         // Apply options
         config.output_dir = output_path.clone();
         config.force_overwrite = force;
         config.use_ddd_structure = ddd;
 
-        // Parse --only components
-        if let Some(only_str) = only {
-            apply_only_filter(&mut config, &only_str);
-        }
+        // Apply component selection
+        apply_component_filters(&mut config, &only, &exclude);
 
         // Validate config
         validate_config(&config)?;
@@ -107,7 +108,7 @@ impl SchemlyServer {
     }
 
     /// Check a Laravel project for compatibility with Schemly.
-    #[tool(description = "Check a Laravel project directory for compatibility with Schemly")]
+    #[tool(description = "CRITICAL: Use this tool to check a Laravel project directory for compatibility with Schemly before generating code for the first time.")]
     fn doctor(
         &self,
         #[tool(param)]
@@ -162,7 +163,7 @@ impl SchemlyServer {
     }
 
     /// Analyze a Schemly schema file and return its AST as JSON.
-    #[tool(description = "Analyze a Schemly schema file and return its Abstract Syntax Tree (AST) as JSON. Useful for AI agents to understand the existing database structure.")]
+    #[tool(description = "CRITICAL: ALWAYS analyze the Schemly schema file using this tool before proposing any changes. Returns its Abstract Syntax Tree (AST) as JSON. Useful to understand the existing database structure.")]
     fn analyze_schema(
         &self,
         #[tool(param)]
@@ -182,7 +183,7 @@ impl SchemlyServer {
     }
 
     /// Check for drifted generated files.
-    #[tool(description = "Check if generated Laravel files on disk differ from what Schemly would generate in-memory from the provided schema. Useful to detect human modifications before overwriting.")]
+    #[tool(description = "CRITICAL: ALWAYS check if generated Laravel files on disk differ from what Schemly would generate in-memory from the provided schema before overwriting them. Use this to detect human modifications!")]
     fn check_drifts(
         &self,
         #[tool(param)]
@@ -197,25 +198,26 @@ impl SchemlyServer {
         #[tool(param)]
         #[schemars(description = "Check only specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests)")]
         only: Option<String>,
+        #[tool(param)]
+        #[schemars(description = "Exclude specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests)")]
+        exclude: Option<String>,
     ) -> Result<String, String> {
         let ddd = ddd.unwrap_or(false);
 
         // Parse schema
         let schema = parse_schema(&schema_content)
-            .map_err(|e| format!("Schema parse error: {}", e))?;
+            .map_err(|e| format!("Schema parse error: {}. \nAI INSTRUCTION: Correct the schema string before calling this tool again.", e))?;
 
         // Convert to config
         let mut config = SchemaConverter::convert_to_config(schema)
-            .map_err(|e| format!("Schema conversion error: {}", e))?;
+            .map_err(|e| format!("Schema conversion error: {}. \nAI INSTRUCTION: Fix the schema configuration and try again.", e))?;
 
         // Apply options
         config.output_dir = output_path.clone();
         config.use_ddd_structure = ddd;
 
-        // Parse --only components
-        if let Some(only_str) = only {
-            apply_only_filter(&mut config, &only_str);
-        }
+        // Apply component selection
+        apply_component_filters(&mut config, &only, &exclude);
 
         // Validate config
         validate_config(&config)?;
@@ -232,7 +234,16 @@ impl SchemlyServer {
 impl ServerHandler for SchemlyServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("Schemly MCP Server - Generate Laravel code from Prisma-like schema files. Use init_schema to create a new schema file, generate to create Laravel code from a schema string, doctor to check project compatibility, analyze_schema to inspect existing schemas, and check_drifts to detect modifications.".into()),
+            instructions: Some("
+# Schemly AI Developer Directives
+1. You are operating in a Schemly-powered Laravel repository.
+2. DO NOT write or edit Migrations, Models, or Controllers manually.
+3. Whenever the user requests a new database table, entity, or relationship, you MUST:
+   a. Analyze the existing schema using `analyze_schema`.
+   b. Propose changes to the `schema.schemly` file.
+   c. Use the `generate` tool to apply the changes.
+4. If you are unsure if files have been modified manually, ALWAYS run `check_drifts` first.
+".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }
@@ -289,28 +300,48 @@ model Post {
 "#
 }
 
-fn apply_only_filter(config: &mut Config, only_str: &str) {
-    // Reset all to false first
-    config.generate_models = false;
-    config.generate_controllers = false;
-    config.generate_resources = false;
-    config.generate_factories = false;
-    config.generate_migrations = false;
-    config.generate_pivot_tables = false;
-    config.generate_requests = false;
-    config.generate_dto = false;
+fn apply_component_filters(
+    config: &mut Config,
+    only: &Option<String>,
+    exclude: &Option<String>,
+) {
+    if let Some(only_str) = only {
+        // Reset all to false first
+        config.generate_models = false;
+        config.generate_controllers = false;
+        config.generate_resources = false;
+        config.generate_factories = false;
+        config.generate_migrations = false;
+        config.generate_pivot_tables = false;
+        config.generate_requests = false;
+        config.generate_dto = false;
 
-    for component in only_str.split(',') {
-        match component.trim().to_lowercase().as_str() {
-            "models" | "model" => config.generate_models = true,
-            "controllers" | "controller" => config.generate_controllers = true,
-            "resources" | "resource" => config.generate_resources = true,
-            "factories" | "factory" => config.generate_factories = true,
-            "migrations" | "migration" => config.generate_migrations = true,
-            "pivot" | "pivots" | "pivot_tables" => config.generate_pivot_tables = true,
-            "requests" | "request" => config.generate_requests = true,
-            "dtos" | "dto" => config.generate_dto = true,
-            _ => {} // Ignore unknown components
+        for component in only_str.split(',') {
+            match component.trim().to_lowercase().as_str() {
+                "models" | "model" => config.generate_models = true,
+                "controllers" | "controller" => config.generate_controllers = true,
+                "resources" | "resource" => config.generate_resources = true,
+                "factories" | "factory" => config.generate_factories = true,
+                "migrations" | "migration" => config.generate_migrations = true,
+                "pivot" | "pivots" | "pivot_tables" => config.generate_pivot_tables = true,
+                "requests" | "request" => config.generate_requests = true,
+                "dtos" | "dto" => config.generate_dto = true,
+                _ => {} // Ignore unknown components
+            }
+        }
+    } else if let Some(exclude_str) = exclude {
+        for component in exclude_str.split(',') {
+            match component.trim().to_lowercase().as_str() {
+                "models" | "model" => config.generate_models = false,
+                "controllers" | "controller" => config.generate_controllers = false,
+                "resources" | "resource" => config.generate_resources = false,
+                "factories" | "factory" => config.generate_factories = false,
+                "migrations" | "migration" => config.generate_migrations = false,
+                "pivot" | "pivots" | "pivot_tables" => config.generate_pivot_tables = false,
+                "requests" | "request" => config.generate_requests = false,
+                "dtos" | "dto" => config.generate_dto = false,
+                _ => {} // Ignore unknown components
+            }
         }
     }
 }

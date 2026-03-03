@@ -14,6 +14,7 @@ A powerful Laravel code generator written in Rust that creates models, controlle
 - 🔗 **Relationship Support** - Full support for all Laravel relationship types
 - 🏗️ **Pivot Tables** - Automatic pivot table generation for many-to-many relationships
 - 🤖 **AI-Friendly** - Comprehensive documentation designed for AI code generation
+- 🔌 **MCP Server** - Built-in Model Context Protocol server for Claude, Cursor, and Windsurf
 - 🏛️ **DDD Support** - Optional Domain-Driven Design folder structure
 
 
@@ -108,11 +109,38 @@ schemly generate --output /path/to/laravel-project
 # Generate only specific components
 schemly generate --only models,migrations
 
-# Force overwrite existing files
-schemly generate --force
+# Generate everything EXCEPT specific components
+schemly generate --exclude controllers,dtos
 
 # Use Domain-Driven Design structure
 schemly generate --ddd
+
+# Set up AI context rules (.cursorrules, etc.)
+schemly init-rules
+```
+
+## AI Integration (MCP Server)
+
+Schemly includes a built-in Model Context Protocol (MCP) server that allows AI assistants like Claude, Cursor, and Windsurf to automatically read your schema and generate code.
+
+### MCP Tools Available
+- `init_schema` - Creates a new schema file
+- `generate` - Generates Laravel code from a schema string
+- `doctor` - Checks project compatibility
+- `analyze_schema` - Returns the schema's AST for the AI to understand your database
+- `check_drifts` - Checks if generated files have been manually modified
+
+### Setting up with Cursor/Windsurf
+Add the following to your MCP settings or run it directly:
+
+```json
+{
+  "mcpServers": {
+    "schemly": {
+      "command": "schemly_mcp"
+    }
+  }
+}
 ```
 
 ## CLI Commands
@@ -130,6 +158,18 @@ schemly init --output my-schema.schemly
 
 # Force overwrite if file exists
 schemly init --force
+```
+
+### `schemly init-rules`
+
+Sets up project rules to optimize Schemly AI context.
+
+```bash
+# Create .cursorrules and .windsurfrules in current directory
+schemly init-rules
+
+# Create in a specific directory
+schemly init-rules --output /path/to/laravel-project
 ```
 
 ### `schemly generate`
@@ -156,6 +196,9 @@ schemly generate --force
 schemly generate --only models,migrations
 schemly generate --only controllers,resources,factories
 
+# Generate everything EXCEPT specific components
+schemly generate --exclude requests,dtos
+
 # Use Domain-Driven Design structure
 schemly generate --ddd
 
@@ -163,12 +206,13 @@ schemly generate --ddd
 schemly generate --verbose
 ```
 
-**Available components for `--only` flag:**
+**Available components for `--only` / `--exclude` flags:**
 - `models` - Eloquent models
 - `migrations` - Database migrations
 - `controllers` - API controllers
 - `resources` - API resources
 - `factories` - Model factories
+- `requests` - Form Requests (Store/Update)
 - `dtos` - Data Transfer Objects
 - `pivot` - Pivot tables
 
@@ -365,6 +409,9 @@ schemly generate --force
 
 # Override component selection
 schemly generate --only models,migrations
+schemly generate --exclude dtos,factories
+```
+
 ## Generated Files
 
 Schemly generates the following Laravel files:
@@ -379,6 +426,12 @@ Schemly generates the following Laravel files:
 
 - Resource controllers with CRUD operations
 - Proper imports and type hints
+
+### Requests (`app/Http/Requests/`)
+
+- Form Request classes for `store` and `update` actions
+- Automatic validation rules mapped from schema fields
+- Includes custom `@validate()` rules
 
 ### Resources (`app/Http/Resources/`)
 
@@ -533,7 +586,17 @@ git add .
 git commit -m "Regenerate Laravel models from schema"
 ```
 
-### 6. Use Doctor Command
+### 6. Set Up AI Constraints
+
+If using an AI like Cursor or Windsurf, generate context rules:
+
+```bash
+# Generates .cursorrules and .windsurfrules 
+# Forces AI to rely on Schemly + Schema changes instead of manual Laravel boilerplate
+schemly init-rules
+```
+
+### 7. Use Doctor Command
 
 Check your Laravel project before generating:
 
@@ -689,7 +752,8 @@ See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 
 **New Features:**
 - ✅ **Prisma-like Syntax**: Modern, industry-standard schema definition language
-- ✅ **New CLI Commands**: `init`, `generate`, `watch`, `doctor`
+- ✅ **New CLI Commands**: `init`, `generate`, `watch`, `doctor`, `init-rules`
+- ✅ **Component Pruning**: Added `--exclude` flag to generate everything EXCEPT specific targets
 - ✅ **Dry Run Mode**: Preview what would be generated with `--dry-run`
 - ✅ **Doctor Command**: Check Laravel project compatibility
 - ✅ **Improved Component Selection**: `--only models,migrations` syntax

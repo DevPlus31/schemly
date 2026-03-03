@@ -86,7 +86,6 @@ impl RequestGenerator {
         let prefix = if action == "store" { "Store" } else { "Update" };
         let request_name = format!("{}{}", prefix, &model.name);
         
-        // Convert rules to string representation for template
         let rules = self.generate_rules(model, action)?;
         let mut rules_str = String::new();
         for rule in &rules {

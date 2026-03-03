@@ -107,9 +107,13 @@ enum Commands {
         #[arg(long)]
         force: bool,
 
-        /// Generate only specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests)
+        /// Generate only specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests,pivot)
         #[arg(long, value_delimiter = ',')]
         only: Option<Vec<String>>,
+
+        /// Exclude specific components (comma-separated: models,migrations,controllers,resources,factories,dtos,requests,pivot)
+        #[arg(long, value_delimiter = ',', conflicts_with = "only")]
+        exclude: Option<Vec<String>>,
 
         /// Use Domain-Driven Design folder structure
         #[arg(long)]
@@ -129,6 +133,10 @@ enum Commands {
         /// Generate only specific components (comma-separated)
         #[arg(long, value_delimiter = ',')]
         only: Option<Vec<String>>,
+
+        /// Exclude specific components (comma-separated)
+        #[arg(long, value_delimiter = ',', conflicts_with = "only")]
+        exclude: Option<Vec<String>>,
     },
 
     /// Checks your Laravel project for compatibility
@@ -136,6 +144,17 @@ enum Commands {
         /// Laravel project root directory
         #[arg(short, long, default_value = ".")]
         path: String,
+    },
+
+    /// Creates AI editor rules (.cursorrules, .windsurfrules) for Schemly
+    InitRules {
+        /// Output directory (default: current directory)
+        #[arg(short, long, default_value = ".")]
+        output: String,
+
+        /// Force overwrite if files exist
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -338,36 +357,53 @@ impl Config {
     }
 }
 
+
+
 // Helper functions
-fn parse_only_components(only: &Option<Vec<String>>) -> (bool, bool, bool, bool, bool, bool, bool, bool) {
+fn apply_component_filters(
+    config: &mut Config,
+    only: &Option<Vec<String>>,
+    exclude: &Option<Vec<String>>,
+) {
     if let Some(components) = only {
-        let mut models = false;
-        let mut controllers = false;
-        let mut resources = false;
-        let mut factories = false;
-        let mut migrations = false;
-        let mut pivot_tables = false;
-        let mut dtos = false;
-        let mut requests = false;
+        // If --only is provided, turn everything OFF first, then enable requested
+        config.generate_models = false;
+        config.generate_controllers = false;
+        config.generate_resources = false;
+        config.generate_factories = false;
+        config.generate_migrations = false;
+        config.generate_pivot_tables = false;
+        config.generate_dto = false;
+        config.generate_requests = false;
 
         for component in components {
             match component.to_lowercase().as_str() {
-                "models" | "model" => models = true,
-                "controllers" | "controller" => controllers = true,
-                "resources" | "resource" => resources = true,
-                "factories" | "factory" => factories = true,
-                "migrations" | "migration" => migrations = true,
-                "pivot" | "pivots" | "pivot_tables" => pivot_tables = true,
-                "dtos" | "dto" => dtos = true,
-                "requests" | "request" => requests = true,
-                _ => eprintln!("⚠️  Warning: Unknown component '{}'", component),
+                "models" | "model" => config.generate_models = true,
+                "controllers" | "controller" => config.generate_controllers = true,
+                "resources" | "resource" => config.generate_resources = true,
+                "factories" | "factory" => config.generate_factories = true,
+                "migrations" | "migration" => config.generate_migrations = true,
+                "pivot" | "pivots" | "pivot_tables" => config.generate_pivot_tables = true,
+                "dtos" | "dto" => config.generate_dto = true,
+                "requests" | "request" => config.generate_requests = true,
+                _ => eprintln!("⚠️  Warning: Unknown component in --only '{}'", component),
             }
         }
-
-        (models, controllers, resources, factories, migrations, pivot_tables, dtos, requests)
-    } else {
-        // Default: generate all
-        (true, true, true, true, true, true, true, true)
+    } else if let Some(components) = exclude {
+        // If --exclude is provided, disable the requested ones (leaving schema defaults alone otherwise)
+        for component in components {
+            match component.to_lowercase().as_str() {
+                "models" | "model" => config.generate_models = false,
+                "controllers" | "controller" => config.generate_controllers = false,
+                "resources" | "resource" => config.generate_resources = false,
+                "factories" | "factory" => config.generate_factories = false,
+                "migrations" | "migration" => config.generate_migrations = false,
+                "pivot" | "pivots" | "pivot_tables" => config.generate_pivot_tables = false,
+                "dtos" | "dto" => config.generate_dto = false,
+                "requests" | "request" => config.generate_requests = false,
+                _ => eprintln!("⚠️  Warning: Unknown component in --exclude '{}'", component),
+            }
+        }
     }
 }
 
@@ -453,14 +489,17 @@ fn main() -> Result<()> {
         Commands::Init { output, force } => {
             handle_init(output, *force)
         }
-        Commands::Generate { output, dry_run, force, only, ddd } => {
-            handle_generate(&cli, output, *dry_run, *force, only, *ddd)
+        Commands::Generate { output, dry_run, force, only, exclude, ddd } => {
+            handle_generate(&cli, output, *dry_run, *force, only, exclude, *ddd)
         }
-        Commands::Watch { output, force, only } => {
-            handle_watch(&cli, output, *force, only)
+        Commands::Watch { output, force, only, exclude } => {
+            handle_watch(&cli, output, *force, only, exclude)
         }
         Commands::Doctor { path } => {
             handle_doctor(path)
+        }
+        Commands::InitRules { output, force } => {
+            handle_init_rules(output, *force)
         }
     }
 }
@@ -489,6 +528,7 @@ fn handle_generate(
     dry_run: bool,
     force: bool,
     only: &Option<Vec<String>>,
+    exclude: &Option<Vec<String>>,
     ddd: bool,
 ) -> Result<()> {
     let schema_path = get_schema_path(&cli.file);
@@ -499,24 +539,13 @@ fn handle_generate(
 
     let mut generator = LaravelGenerator::from_file(&schema_path)?;
 
-    // Parse --only components
-    let (gen_models, gen_controllers, gen_resources, gen_factories, gen_migrations, gen_pivot, gen_dtos, gen_requests)
-        = parse_only_components(only);
+    // Apply component selection (CLI args take priority over schema config)
+    apply_component_filters(&mut generator.config, only, exclude);
 
     // Override config with CLI options
     generator.config.output_dir = output.to_string();
     generator.config.force_overwrite = force;
     generator.config.use_ddd_structure = ddd;
-
-    // Apply component selection
-    generator.config.generate_models = gen_models;
-    generator.config.generate_controllers = gen_controllers;
-    generator.config.generate_resources = gen_resources;
-    generator.config.generate_factories = gen_factories;
-    generator.config.generate_migrations = gen_migrations;
-    generator.config.generate_pivot_tables = gen_pivot;
-    generator.config.generate_dto = gen_dtos;
-    generator.config.generate_requests = gen_requests;
 
     // Warn user about force flag
     if force {
@@ -552,7 +581,7 @@ fn handle_generate(
     Ok(())
 }
 
-fn handle_watch(_cli: &Cli, _output: &str, _force: bool, _only: &Option<Vec<String>>) -> Result<()> {
+fn handle_watch(_cli: &Cli, _output: &str, _force: bool, _only: &Option<Vec<String>>, _exclude: &Option<Vec<String>>) -> Result<()> {
     println!("⚠️  Watch mode is not yet implemented.");
     println!("This feature will automatically regenerate code when the schema file changes.");
     Ok(())
@@ -592,6 +621,33 @@ fn handle_doctor(path: &str) -> Result<()> {
     println!("  {} database/migrations/", if migrations_dir.exists() { "✓" } else { "❌" });
 
     println!("\n✓ Project is ready for code generation");
+
+    Ok(())
+}
+
+fn handle_init_rules(output: &str, force: bool) -> Result<()> {
+    let out_path = Path::new(output);
+
+    let content = r#"# Laravel + Schemly Development Rules
+- This project uses Schemly for code generation.
+- You have access to the Schemly MCP Server. 
+- You must NOT manually create or modify ANY Laravel Models, Migrations, Resource classes, or base Controllers.
+- All database and architectural changes MUST be made by editing the `schema.schemly` file and invoking the MCP `generate` tool.
+- If asked to create a "Blog Post" feature, write the Schemly schema for it first."#;
+
+    let cursor_path = out_path.join(".cursorrules");
+    let windsurf_path = out_path.join(".windsurfrules");
+
+    for path in [&cursor_path, &windsurf_path] {
+        if path.exists() && !force {
+            println!("⚠ File '{}' already exists. Use --force to overwrite.", path.display());
+            continue;
+        }
+        if let Err(e) = fs::write(path, content) {
+            return Err(error::GeneratorError::ModelValidation(format!("Failed to write to {}: {}", path.display(), e)));
+        }
+        println!("✓ Created {}", path.display());
+    }
 
     Ok(())
 }
