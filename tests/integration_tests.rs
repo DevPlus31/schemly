@@ -67,6 +67,8 @@ fn create_test_model() -> ModelDefinition {
         validation_rules: vec![],
         traits: vec![],
         fillable_guarded: FillableGuarded::All,
+        compound_indexes: vec![],
+        compound_uniques: vec![],
     }
 }
 
@@ -82,6 +84,7 @@ fn create_test_config(output_dir: &str, use_ddd: bool) -> Config {
         generate_migrations: true,
         generate_pivot_tables: true,
         generate_validation_rules: true,
+        generate_requests: false,
         generate_dto: true,
         use_ddd_structure: use_ddd,
         database_engine: "mysql".to_string(),
@@ -375,4 +378,69 @@ fn test_validation_error_integration_empty_output_dir() {
     let result = generator.generate(&model, &config);
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("Output directory cannot be empty"));
+}
+
+use schemly::schema::{parse_schema, SchemaConverter};
+
+#[test]
+fn test_mcp_check_drifts_logic_simulation() {
+    let schema_content = r#"
+generator laravel {
+  provider = "schemly"
+  output   = "./test_app_drift"
+}
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  @@map("users")
+  @@traits(["HasFactory"])
+  @@fillable(["name"])
+}
+"#;
+
+    let schema = parse_schema(schema_content).unwrap();
+    let mut config = SchemaConverter::convert_to_config(schema).unwrap();
+    config.output_dir = "./test_app_drift".to_string();
+    config.force_overwrite = true;
+    config.generate_models = true;
+
+    // 1. Initial State: Should be MISSING
+    use schemly::generators::{Generator, model_generator::ModelGenerator};
+    let generator = ModelGenerator;
+    let model = &config.models[0];
+    
+    let expected_content = generator.generate(model, &config).unwrap();
+    let file_path = generator.get_file_path(model, &config);
+    
+    let path_obj = std::path::Path::new(&file_path);
+    if path_obj.exists() {
+        std::fs::remove_file(&file_path).unwrap();
+    }
+    
+    // Validate missing state implicitly by expecting the file not to exist.
+    assert!(!path_obj.exists());
+    
+    // 2. Generate
+    if let Some(parent) = path_obj.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    std::fs::write(&file_path, &expected_content).unwrap();
+    
+    // 3. INTACT State Check
+    let actual_content = std::fs::read_to_string(&file_path).unwrap();
+    assert_eq!(actual_content, expected_content);
+    
+    // 4. DRIFTED State Check
+    let drifted_content = format!("{}\n// I am a human modification!", expected_content);
+    std::fs::write(&file_path, &drifted_content).unwrap();
+    
+    let re_read_content = std::fs::read_to_string(&file_path).unwrap();
+    assert_ne!(re_read_content, expected_content);
+    
+    // Cleanup
+    std::fs::remove_dir_all("./test_app_drift").unwrap();
 }

@@ -8,6 +8,8 @@ jobs:
   release:
     name: release ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -16,10 +18,9 @@ jobs:
             os: ubuntu-latest
             suffix: linux-amd64
             use_cross: true
-          
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            suffix: macos-amd64
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            suffix: windows-arm64.exe
             use_cross: false
 
           - target: aarch64-apple-darwin
